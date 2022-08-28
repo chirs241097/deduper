@@ -288,5 +288,13 @@ signature_config signature::default_cfg()
 
 size_t signature_hash::operator()(signature const& sig) const noexcept
 {
-    return compressed_vector_hash<uint8_t, 3>{}(sig.p->ct);
+    if (sig.p->compressed)
+        return compressed_vector_hash<uint8_t, 3>{}(sig.p->ct);
+    else
+    {
+        size_t ret = 0;
+        for (uint8_t &v : sig.p->uct)
+            ret ^= v + 0x9e3779b9 + (ret << 6) + (ret >> 2);
+        return ret;
+    }
 }
