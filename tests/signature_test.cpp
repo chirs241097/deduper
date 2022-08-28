@@ -5,8 +5,8 @@
 int main()
 {
     std::vector<signature> a;
-    a.push_back(std::move(signature::from_file("img/x.jpg")));
-    a.push_back(std::move(signature::from_file("img/z.jpg")));
+    a.push_back(std::move(signature::from_file("img/x.jpg", signature::default_cfg())));
+    a.push_back(std::move(signature::from_file("img/z.jpg", signature::default_cfg())));
     for (size_t i = 0; i < a.size(); ++i)
     for (size_t j = 0; j < a.size(); ++j)
     {

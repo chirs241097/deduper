@@ -7,6 +7,8 @@
 
 #include "compressed_vector.hpp"
 
+#define sqr(x) ((x) * (x))
+
 class image_util
 {
 public:
@@ -21,7 +23,7 @@ public:
         double ret = 0;
         for (size_t i = 0; i < v.size(); ++i)
         {
-            ret += (double)(v.get(i) - center) * (v.get(i) - center);
+            ret += sqr(1. * v.get(i) - center);
         }
         return sqrt(ret);
     }
@@ -35,7 +37,7 @@ public:
             if (abs((int)v1.get(i) - (int)v2.get(i)) == 2 && (v1.get(i) == 2 || v2.get(i) == 2))
             ret += 9;
             else
-            ret += (double)(v1.get(i) - v2.get(i)) * (v1.get(i) - v2.get(i));
+            ret += sqr(1. * v1.get(i) - v2.get(i));
         }
         return sqrt(ret);
     }
@@ -44,7 +46,7 @@ public:
         double ret = 0;
         for (size_t i = 0; i < v.size(); ++i)
         {
-            ret += (double)(v[i] - center) * (v[i] - center);
+            ret += sqr(1. * v[i] - center);
         }
         return sqrt(ret);
     }
@@ -57,7 +59,7 @@ public:
             if (abs((int)v1[i] - (int)v2[i]) == 2 && (v1[i] == 2 || v2[i] == 2))
             ret += 9;
             else
-            ret += (double)(v1[i] - v2[i]) * (v1[i] - v2[i]);
+            ret += sqr(1. * v1[i] - v2[i]);
         }
         return sqrt(ret);
     }

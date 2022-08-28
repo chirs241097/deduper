@@ -22,7 +22,6 @@ class signature
 {
 private:
     std::shared_ptr<signature_priv> p;
-    static signature_config cfg;
     signature(signature_priv* _p);
     signature(const signature&)=default;
     signature& operator=(const signature&)=default;
@@ -32,27 +31,12 @@ public:
     signature(signature&&)=default;
     signature& operator=(signature&&)=default;
     signature clone() const;//do not use unless absolutely needed
+    void dump() const;
     double length() const;
     double distance(const signature &o) const;
     bool operator ==(const signature &o) const;
 
-    /*
-     * Configure parameters for signature calculation.
-     * Please note:
-     * Comparing signatures calculated using different
-     * parameters gives no meaningful results.
-     *
-     * If never called, a default configuration is used.
-     * See signature.cpp.
-     */
-    static void configure(signature_config _cfg);
-    /*
-     * Get current signature calculation parameters.
-     * If it's never set explicitly, the default configuration
-     * is returned.
-     */
-    static signature_config config();
-    static signature from_file(const char *fn);
+    static signature from_file(const char *fn, const signature_config &cfg);
 
     /*
      * Input will be stripped of alpha channel (by blending with white),
@@ -60,7 +44,7 @@ public:
      * Then it will be passed to from_preprocessed_matrix.
      * The matrix doesn't have to be continuous.
      */
-    static signature from_cvmatrix(cv::Mat m);
+    static signature from_cvmatrix(cv::Mat m, const signature_config &cfg);
 
     /*
      * Input must be a single channel, floating point matrix
@@ -69,7 +53,9 @@ public:
      * STILL *Will* be cropped if config().crop == true
      * STILL *Will* be blurred if config().blur_window > 1
      */
-    static signature from_preprocessed_matrix(cv::Mat m);
+    static signature from_preprocessed_matrix(cv::Mat m, const signature_config &cfg);
+
+    static signature_config default_cfg();
 
     friend class signature_priv;
     friend struct signature_hash;

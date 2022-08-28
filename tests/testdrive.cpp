@@ -18,6 +18,8 @@
 
 #include "thread_pool.hpp"
 
+#define DEBUG 0
+
 int ctr;
 int recursive;
 int njobs=1;
@@ -27,6 +29,32 @@ std::vector<std::string> files;
 
 int nsliceh = 3;
 int nslicev = 3;
+
+signature_config cfg_full =
+{
+    9,     //slices
+    3,     //blur_window
+    2,     //min_window
+    true,  //crop
+    true,  //comp
+    0.5,   //pr
+    1./128,//noise_threshold
+    0.05,  //contrast_threshold
+    0.25   //max_cropping
+};
+
+signature_config cfg_subslice =
+{
+    4,     //slices
+    16,    //blur_window
+    2,     //min_window
+    false, //crop
+    true,  //comp
+    0.5,   //pr
+    1./64, //noise_threshold
+    0.05,  //contrast_threshold
+    0.25   //max_cropping
+};
 
 struct sig_eq
 {
@@ -125,7 +153,12 @@ void build_file_list(std::filesystem::path path,bool recursive,std::vector<std::
             size_t sz = fread((void*)c,1,6,fp);
                         if (sz < 6) continue;
             if(!memcmp(c,"\x89PNG\r\n",6)||!memcmp(c,"\xff\xd8\xff",3))
+            {
                 out.push_back(p.path().string());
+#if DEBUG > 0
+                printf("%ld, %s\n", out.size() - 1, out.back().c_str());
+#endif
+            }
             fclose(fp);
         }
     }
@@ -139,7 +172,12 @@ void build_file_list(std::filesystem::path path,bool recursive,std::vector<std::
             size_t sz = fread((void*)c,1,6,fp);
                         if (sz < 6) continue;
             if(!memcmp(c,"\x89PNG\r\n",6)||!memcmp(c,"\xff\xd8\xff",3))
+            {
                 out.push_back(p.path().string());
+#if DEBUG > 0
+                printf("%ld, %s\n", out.size() - 1, out.back().c_str());
+#endif
+            }
             fclose(fp);
         }
     }
@@ -148,7 +186,10 @@ void build_file_list(std::filesystem::path path,bool recursive,std::vector<std::
 void job_func(int thid, size_t id)
 {
     cv::Mat img = cv::imread(files[id].c_str(), cv::IMREAD_UNCHANGED);
-    signature s = signature::from_cvmatrix(img);
+    signature s = signature::from_cvmatrix(img, cfg_full);
+#if DEBUG > 1
+    s.dump();
+#endif
     int ssw = img.size().width / nsliceh;
     int ssh = img.size().height / nslicev;
     std::vector<signature> subsigs;
@@ -159,7 +200,13 @@ void job_func(int thid, size_t id)
         int r = (i == nsliceh) ? img.size().width : (i + 1) * ssw;
         int t = j * ssh;
         int b = (j == nslicev) ? img.size().height : (j + 1) * ssh;
-        subsigs.push_back(std::move(signature::from_cvmatrix(img(cv::Range(t, b), cv::Range(l, r)))));
+        subsigs.push_back(std::move(signature::from_cvmatrix(img(cv::Range(t, b), cv::Range(l, r)), cfg_subslice)));
+#if DEBUG > 0
+        printf("%ld, (%d, %d) %lu\n", id, i, j, signature_hash{}(subsigs.back()));
+#endif
+#if DEBUG > 1
+        subsigs.back().dump();
+#endif
     }
 
     printf("%d %lu\r", thid, id);
@@ -177,6 +224,10 @@ void job_func(int thid, size_t id)
             {
                 if (si.second == i)
                 {
+#if DEBUG > 1
+                    printf("%d@(%ld <-> %ld) %f\n", i, id, si.first, s.distance(signatures[si.first]));
+#endif
+
                     if (!v[si.first] && s.distance(signatures[si.first]) < threshold)
                     {
                         out.emplace_back(id, std::move(si.first));
