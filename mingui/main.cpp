@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <algorithm>
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
@@ -11,9 +12,10 @@
 #include "mingui.hpp"
 
 using std::size_t;
+namespace fs = std::filesystem;
 
-std::unordered_map<std::string, size_t> p;
-std::vector<std::string> fns;
+std::unordered_map<fs::path, size_t> fnmap;
+std::vector<fs::path> fns;
 std::map<std::pair<size_t, size_t>, double> dist;
 std::vector<size_t> par;
 std::vector<std::vector<size_t>> lists;
@@ -42,25 +44,25 @@ void load_result(const char* rp)
     {
         int l;
         double d;
-        std::string s1, s2;
+        fs::path::string_type s1, s2;
         if (feof(f)) break;
         fread(&l, sizeof(int), 1, f);
         s1.resize(l);
-        fread(s1.data(), 1, l, f);
-        p.try_emplace(s1, p.size() + 1);
+        fread(s1.data(), sizeof(fs::path::value_type), l, f);
+        fnmap.try_emplace(s1, fnmap.size() + 1);
         fread(&l, sizeof(int), 1, f);
         s2.resize(l);
-        fread(s2.data(), 1, l, f);
-        p.try_emplace(s2, p.size() + 1);
+        fread(s2.data(), sizeof(fs::path::value_type), l, f);
+        fnmap.try_emplace(s2, fnmap.size() + 1);
         fread(&d, sizeof(double), 1, f);
-        dist[std::make_pair(p[s1], p[s2])] = d;
+        dist[std::make_pair(fnmap[s1], fnmap[s2])] = d;
     }
     fclose(f);
 }
 
-std::vector<std::string> build_list(const std::vector<size_t> &l)
+std::vector<fs::path> build_list(const std::vector<size_t> &l)
 {
-    std::vector<std::string> ret;
+    std::vector<fs::path> ret;
     for (auto &x : l)
         ret.push_back(fns[x]);
     return ret;
@@ -88,12 +90,12 @@ int main(int argc, char **argv)
     if (argc < 2) return 1;
 
     load_result(argv[1]);
-    printf("%lu known files\n", p.size());
+    printf("%lu known files\n", fnmap.size());
 
-    par.resize(p.size() + 1);
-    fns.resize(p.size() + 1);
-    lists.resize(p.size() + 1);
-    for (auto &kp : p)
+    par.resize(fnmap.size() + 1);
+    fns.resize(fnmap.size() + 1);
+    lists.resize(fnmap.size() + 1);
+    for (auto &kp : fnmap)
         fns[kp.second] = kp.first;
 
     for (size_t i = 1; i < par.size(); ++i)

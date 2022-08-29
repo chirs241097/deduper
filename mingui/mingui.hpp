@@ -1,6 +1,7 @@
 #ifndef MINGUI_HPP
 #define MINGUI_HPP
 
+#include <filesystem>
 #include <vector>
 #include <string>
 #include <unordered_set>
@@ -10,6 +11,8 @@
 class QHBoxLayout;
 class QLabel;
 class QStatusBar;
+
+namespace fs = std::filesystem;
 
 class MinGuiWidget : public QWidget
 {
@@ -25,17 +28,17 @@ private:
     void mark_all();
     void mark_none();
     void mark_view_update(bool update_msg = true);
-    std::string common_prefix(const std::vector<std::string> &fns);
+    fs::path::string_type common_prefix(const std::vector<fs::path> &fns);
     std::vector<QWidget*> imgw;
     std::vector<bool> marks;
-    std::unordered_set<std::string> marked;
-    std::vector<std::string> current_set;
+    std::unordered_set<fs::path> marked;
+    std::vector<fs::path> current_set;
 protected:
     void keyPressEvent(QKeyEvent *e) override;
     void keyReleaseEvent(QKeyEvent *e) override;
 public:
     MinGuiWidget();
-    void show_images(const std::vector<std::string> &fns);
+    void show_images(const std::vector<std::filesystem::path> &fns);
     void update_distances(const std::map<std::pair<std::size_t, std::size_t>, double> &d);
     void update_permamsg(std::size_t cur, std::size_t size);
     void save_list();
@@ -55,7 +58,7 @@ private:
 protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
 public:
-    ImageWidget(std::string f, std::string dispfn, std::size_t _idx, int max_width, int max_height, QWidget *par);
+    ImageWidget(fs::path f, fs::path::string_type dispfn, std::size_t _idx, int max_width, int max_height, QWidget *par);
     void set_marked(bool marked);
 Q_SIGNALS:
     void clicked();

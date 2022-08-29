@@ -2,6 +2,7 @@
 #define IMAGEUTIL_HPP
 
 #include <cstdlib>
+#include <filesystem>
 #include <vector>
 #include <opencv2/core.hpp>
 
@@ -9,13 +10,15 @@
 
 #define sqr(x) ((x) * (x))
 
-class image_util
+
+
+namespace image_util
 {
-public:
-    static cv::Mat crop(cv::InputArray s, double contrast_threshold, double max_crop_ratio);
-    static cv::Range crop_axis(cv::InputArray s, int axis, double contrast_threshold, double max_crop_ratio);
-    static double median(std::vector<double> &v);
-    static cv::Mat blend_white(cv::Mat m);
+    cv::Mat crop(cv::InputArray s, double contrast_threshold, double max_crop_ratio);
+    cv::Range crop_axis(cv::InputArray s, int axis, double contrast_threshold, double max_crop_ratio);
+    double median(std::vector<double> &v);
+    cv::Mat blend_white(cv::Mat m);
+    cv::Mat imread_path(const std::filesystem::path &p, int flags);
 
     template<class T, int B>
     static double length(const compressed_vector<T, B> &v, T center)

@@ -1,7 +1,8 @@
 #include "mingui.hpp"
 
 #include <cstdio>
-#include <filesystem>
+#include <cwchar>
+#include <type_traits>
 
 #include <QDebug>
 #include <QKeyEvent>
@@ -28,6 +29,15 @@ const std::vector<int> keys = {
         Qt::Key::Key_U, Qt::Key::Key_I, Qt::Key::Key_O, Qt::Key::Key_P
 };
 
+QString fsstr_to_qstring(const fs::path::string_type &s)
+{
+#ifdef _WIN32 //the degenerate platform
+    return QString::fromStdWString(s);
+#else
+    return QString::fromStdString(s);
+#endif
+}
+
 MinGuiWidget::MinGuiWidget()
 {
     this->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
@@ -52,7 +62,7 @@ MinGuiWidget::MinGuiWidget()
     infopanel->setSizePolicy(QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Minimum);
 }
 
-void MinGuiWidget::show_images(const std::vector<std::string> &fns)
+void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
 {
     current_set = fns;
     marks.clear();
@@ -61,14 +71,14 @@ void MinGuiWidget::show_images(const std::vector<std::string> &fns)
     imgcontainer->setLayout(new QVBoxLayout(imgcontainer));
     int max_height = (this->screen()->size().height() / fns.size() * 0.75 - 24) * this->screen()->devicePixelRatio();
     int max_width = this->screen()->size().width() * 0.8 * this->screen()->devicePixelRatio();
-    std::string common_pfx = common_prefix(fns);
+    fs::path::string_type common_pfx = common_prefix(fns);
     size_t idx = 0;
     if (fns.size() > keys.size())
         QMessageBox::warning(this, "Too many duplicates", "Too many duplicates found. Some couldn't be assigned a hotkey.");
     for (auto &f : fns)
     {
         marks.push_back(marked.find(f) != marked.end());
-        ImageWidget *tw = new ImageWidget(f, f.substr(common_pfx.length()), idx, max_width, max_height, this);
+        ImageWidget *tw = new ImageWidget(f, f.native().substr(common_pfx.length()), idx, max_width, max_height, this);
         QObject::connect(tw, &ImageWidget::clicked, [this, idx] { this->mark_toggle(idx); });
         imgw.push_back(tw);
         imgcontainer->layout()->addWidget(tw);
@@ -103,7 +113,11 @@ void MinGuiWidget::save_list()
     QString fn = QFileDialog::getSaveFileName(this, "Save list", QString(), "*.txt");
     FILE *f = fopen(fn.toStdString().c_str(), "w");
     for (auto &x : this->marked)
+#ifdef _WIN32
+        fwprintf(f, L"%ls\n", x.c_str());
+#else
         fprintf(f, "%s\n", x.c_str());
+#endif
     fclose(f);
 }
 
@@ -180,23 +194,24 @@ void MinGuiWidget::mark_view_update(bool update_msg)
     sb->showMessage(QString("%1 of %2 marked for deletion").arg(m).arg(current_set.size()), 1000);
 }
 
-std::string MinGuiWidget::common_prefix(const std::vector<std::string> &fns)
+fs::path::string_type MinGuiWidget::common_prefix(const std::vector<fs::path> &fns)
 {
-    std::string ret;
-    std::string shortest = *std::min_element(fns.begin(), fns.end(), [](auto &a, auto &b){return a.length() < b.length();});
+    using fsstr = fs::path::string_type;
+    fsstr ret;
+    fsstr shortest = *std::min_element(fns.begin(), fns.end(), [](auto &a, auto &b){return a.native().length() < b.native().length();});
     for (size_t i = 0; i < shortest.length(); ++i)
     {
-        char c = shortest[i];
+        fs::path::value_type c = shortest[i];
         bool t = true;
-        for (auto &s : fns) if (s[i] != c) {t = false; break;}
+        for (auto &s : fns) if (s.c_str()[i] != c) {t = false; break;}
         if (!t) break;
         ret.push_back(c);
     }
     if (!ret.empty())
     {
-        auto p = ret.rfind((char)std::filesystem::path::preferred_separator);
-        if (p != std::string::npos)
-            return ret.substr(0, p + 1);
+        auto p = ret.rfind(std::filesystem::path::preferred_separator);
+        if (p != fsstr::npos)
+            return fs::path(ret.substr(0, p + 1));
     }
     return ret;
 }
@@ -227,15 +242,15 @@ void MinGuiWidget::keyReleaseEvent(QKeyEvent *e)
     }
 }
 
-ImageWidget::ImageWidget(std::string f, std::string dispf, size_t _idx, int max_width, int max_height, QWidget *par)
+ImageWidget::ImageWidget(fs::path f, fs::path::string_type dispf, size_t _idx, int max_width, int max_height, QWidget *par)
     : QWidget(par), fn(QString::fromStdString(f)), idx(_idx)
 {
     this->setLayout(new QVBoxLayout(this));
     this->layout()->setMargin(10);
     im = new QLabel(this);
     this->layout()->addWidget(im);
-    QFile imgf(QString::fromStdString(f));
-    QPixmap pm(QString::fromStdString(f));
+    QFile imgf(fsstr_to_qstring(f.native()));
+    QPixmap pm(fsstr_to_qstring(f.native()));
     int imw = pm.width();
     int imh = pm.height();
     pm.setDevicePixelRatio(this->screen()->devicePixelRatio());
@@ -247,7 +262,7 @@ ImageWidget::ImageWidget(std::string f, std::string dispf, size_t _idx, int max_
     this->layout()->addWidget(lb);
     QString s = QString("<%1>: %2, %3 x %4, %5")
                 .arg(idx < keys.size() ? QKeySequence(keys[idx]).toString(): QString("(No hotkey available)"))
-                .arg(QString::fromStdString(dispf/*f.substr(common_pfx.length())*/))
+                .arg(fsstr_to_qstring(dispf))
                 .arg(imw).arg(imh)
                 .arg(QLocale::system().formattedDataSize(imgf.size(), 3));
     lb->setTextFormat(Qt::TextFormat::PlainText);

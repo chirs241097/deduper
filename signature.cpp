@@ -8,6 +8,7 @@
  */
 
 #include <algorithm>
+#include <fstream>
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -278,6 +279,12 @@ signature signature::from_cvmatrix(cv::Mat m, const signature_config &cfg)
 signature signature::from_file(const char *fn, const signature_config &cfg)
 {
     cv::Mat img = cv::imread(fn, cv::IMREAD_UNCHANGED);
+    return signature::from_cvmatrix(img, cfg);
+}
+
+signature signature::from_path(const std::filesystem::path &path, const signature_config &cfg)
+{
+    cv::Mat img = image_util::imread_path(path, cv::IMREAD_UNCHANGED);
     return signature::from_cvmatrix(img, cfg);
 }
 

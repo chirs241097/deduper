@@ -1,8 +1,12 @@
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <iterator>
 #include <limits>
 //#include <cstdio>
+
+#include <opencv2/imgcodecs.hpp>
+
 #include "imageutil.hpp"
 
 //libpuzzle uses a contrast-based cropping, and clamps the cropped area to a given percentage.
@@ -110,4 +114,16 @@ cv::Mat image_util::blend_white(cv::Mat m)
         o += 3;
     }
     return ret;
+}
+
+cv::Mat image_util::imread_path(const std::filesystem::path &p, int flags)
+{
+    auto size = std::filesystem::file_size(p);
+    std::fstream fst(p, std::ios::binary | std::ios::in);
+    std::vector<char> dat;
+    dat.resize(size);
+    fst.read(dat.data(), size);
+    fst.close();
+    cv::Mat img = cv::imdecode(dat, flags);
+    return img;
 }

@@ -1,5 +1,3 @@
-#include "signature.hpp"
-
 #include <cstdio>
 #include <cstring>
 
@@ -16,44 +14,55 @@
 
 #include <getopt.h>
 
+#ifdef _WIN32 //for the superior operating system
+#include <cwchar>
+#include <processenv.h>
+#include <shellapi.h>
+#endif
+
+#include "signature.hpp"
+#include "imageutil.hpp"
+
 #include "thread_pool.hpp"
 
 #define DEBUG 0
 
+namespace fs = std::filesystem;
+
 int ctr;
 int recursive;
-int njobs=1;
-double threshold=0.3;
-std::vector<std::string> paths;
-std::vector<std::string> files;
+int njobs = 1;
+double threshold = 0.3;
+std::vector<fs::path> paths;
+std::vector<fs::path> files;
 
 int nsliceh = 3;
 int nslicev = 3;
 
 signature_config cfg_full =
 {
-    9,     //slices
-    3,     //blur_window
-    2,     //min_window
-    true,  //crop
-    true,  //comp
-    0.5,   //pr
-    1./128,//noise_threshold
-    0.05,  //contrast_threshold
-    0.25   //max_cropping
+    9,      //slices
+    3,      //blur_window
+    2,      //min_window
+    true,   //crop
+    true,   //comp
+    0.5,    //pr
+    1./128, //noise_threshold
+    0.05,   //contrast_threshold
+    0.25    //max_cropping
 };
 
 signature_config cfg_subslice =
 {
-    4,     //slices
-    16,    //blur_window
-    2,     //min_window
-    false, //crop
-    true,  //comp
-    0.5,   //pr
-    1./64, //noise_threshold
-    0.05,  //contrast_threshold
-    0.25   //max_cropping
+    4,      //slices
+    16,     //blur_window
+    2,      //min_window
+    false,  //crop
+    true,   //comp
+    0.5,    //pr
+    1./64,  //noise_threshold
+    0.05,   //contrast_threshold
+    0.25    //max_cropping
 };
 
 struct sig_eq
@@ -73,48 +82,59 @@ std::vector<std::pair<size_t, size_t>> out;
 
 int parse_arguments(int argc,char **argv)
 {
-    recursive=0;
-    int help=0;
+    recursive = 0;
+    int help = 0;
     option longopt[]=
     {
-        {"recursive",no_argument      ,&recursive,1},
-//      {"destdir"  ,required_argument,0         ,'D'},
-        {"jobs"     ,required_argument,0         ,'j'},
-//      {"threshold",required_argument,0         ,'d'},
-        {"help"     ,no_argument      ,&help     ,1},
-        {0          ,0                ,0         ,0}
+        {"recursive", no_argument      , &recursive, 1},
+//      {"destdir"  , required_argument, 0         , 'D'},
+        {"jobs"     , required_argument, 0         , 'j'},
+//      {"threshold", required_argument, 0         , 'd'},
+        {"help"     , no_argument      , &help     , 1},
+        {0          , 0                , 0         , 0}
     };
     while(1)
     {
-        int idx=0;
-        int c=getopt_long(argc,argv,"rhj:",longopt,&idx);
-        if(!~c)break;
-        switch(c)
+        int idx = 0;
+        int c = getopt_long(argc, argv, "rhj:", longopt, &idx);
+        if (!~c) break;
+        switch (c)
         {
             case 0:
-                if(longopt[idx].flag)break;
-                if(std::string("jobs")==longopt[idx].name)
-                sscanf(optarg,"%d",&njobs);
-                //if(std::string("threshold")==longopt[idx].name)
-                //sscanf(optarg,"%lf",&threshold);
+                if (longopt[idx].flag) break;
+                if (std::string("jobs") == longopt[idx].name)
+                    sscanf(optarg, "%d", &njobs);
+                //if(std::string("threshold") == longopt[idx].name)
+                    //sscanf(optarg, "%lf", &threshold);
             break;
             case 'r':
-                recursive=1;
+                recursive = 1;
             break;
             case 'h':
-                help=1;
+                help = 1;
             break;
             case 'j':
-                sscanf(optarg,"%d",&njobs);
+                sscanf(optarg, "%d", &njobs);
             break;
             case 'd':
-                sscanf(optarg,"%lf",&threshold);
+                //sscanf(optarg, "%lf", &threshold);
             break;
         }
     }
-    for(;optind<argc;++optind)
+#ifdef _WIN32 //w*ndows, ugh
+    wchar_t *args = GetCommandLineW();
+    int wargc;
+    wchar_t **wargv = CommandLineToArgvW(args, &wargc);
+    if (wargv && wargc == argc)
+    {
+        for (; optind < argc; ++optind)
+            path.push_back(wargv[optind]);
+    }
+#else
+    for (; optind < argc; ++optind)
         paths.push_back(argv[optind]);
-    if(help||argc<2)
+#endif
+    if (help || argc < 2)
     {
         printf(
         "Usage: %s [OPTION] PATH...\n"
@@ -127,13 +147,13 @@ int parse_arguments(int argc,char **argv)
         );
         return 1;
     }
-    if(threshold>1||threshold<0)
+    if (threshold > 1 || threshold < 0)
     {
         puts("Invalid threshold value.");
         return 2;
     }
-    if(threshold<1e-6)threshold=1e-6;
-    if(!paths.size())
+    if (threshold < 1e-6) threshold = 1e-6;
+    if (!paths.size())
     {
         puts("Missing image path.");
         return 2;
@@ -141,12 +161,12 @@ int parse_arguments(int argc,char **argv)
     return 0;
 }
 
-void build_file_list(std::filesystem::path path,bool recursive,std::vector<std::string>&out)
+void build_file_list(fs::path path, bool recursive, std::vector<fs::path> &out)
 {
-    if(recursive)
+    if (recursive)
     {
-        auto dirit=std::filesystem::recursive_directory_iterator(path);
-        for(auto &p:dirit)
+        auto dirit = fs::recursive_directory_iterator(path);
+        for (auto &p : dirit)
         {
             FILE* fp = fopen(p.path().c_str(),"r");
             char c[8];
@@ -164,8 +184,8 @@ void build_file_list(std::filesystem::path path,bool recursive,std::vector<std::
     }
     else
     {
-        auto dirit=std::filesystem::directory_iterator(path);
-        for(auto &p:dirit)
+        auto dirit = fs::directory_iterator(path);
+        for(auto &p : dirit)
         {
             FILE* fp = fopen(p.path().c_str(),"r");
             char c[8];
@@ -185,7 +205,7 @@ void build_file_list(std::filesystem::path path,bool recursive,std::vector<std::
 
 void job_func(int thid, size_t id)
 {
-    cv::Mat img = cv::imread(files[id].c_str(), cv::IMREAD_UNCHANGED);
+    cv::Mat img = image_util::imread_path(files[id], cv::IMREAD_UNCHANGED);
     signature s = signature::from_cvmatrix(img, cfg_full);
 #if DEBUG > 1
     s.dump();
@@ -250,36 +270,40 @@ void job_func(int thid, size_t id)
 void run()
 {
     thread_pool tp(njobs);
-    for(size_t i=0;i<files.size();++i)
+    for(size_t i = 0; i < files.size(); ++i)
     {
-        tp.create_task(job_func,i);
+        tp.create_task(job_func, i);
     }
     tp.wait();
 }
 
 int main(int argc,char** argv)
 {
-    if(int pr=parse_arguments(argc,argv))return pr-1;
+    if (int pr = parse_arguments(argc, argv)) return pr - 1;
     puts("building list of files to compare...");
-    for(auto&p:paths)
-        build_file_list(p,recursive,files);
-    printf("%lu files to compare.\n",files.size());
+    for (auto &p : paths)
+        build_file_list(p, recursive, files);
+    printf("%lu files to compare.\n", files.size());
     puts("computing signature vectors...");
 
     signatures.resize(files.size());
     run();
     FILE *outf = fopen("result", "wb");
-    for(auto &p : out)
+    for (auto &p : out)
     {
+#ifdef _WIN32
+        wprintf(L"%ls %ls %f\n", files[p.first].c_str(), files[p.second].c_str(), signatures[p.first].distance(signatures[p.second]));
+#else
         printf("%s %s %f\n", files[p.first].c_str(), files[p.second].c_str(), signatures[p.first].distance(signatures[p.second]));
+#endif
         int t;
         double ts;
-        t = (int)files[p.first].length();
+        t = (int)files[p.first].native().length();
         fwrite(&t, sizeof(int), 1, outf);
-        fwrite(files[p.first].c_str(), 1, files[p.first].length(), outf);
-        t = (int)files[p.second].length();
+        fwrite(files[p.first].c_str(), sizeof(fs::path::value_type), t, outf);
+        t = (int)files[p.second].native().length();
         fwrite(&t, sizeof(int), 1, outf);
-        fwrite(files[p.second].c_str(), 1, files[p.second].length(), outf);
+        fwrite(files[p.second].c_str(), sizeof(fs::path::value_type), t, outf);
         ts = signatures[p.first].distance(signatures[p.second]);
         fwrite(&ts, sizeof(double), 1, outf);
     }
