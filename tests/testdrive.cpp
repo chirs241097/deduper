@@ -131,7 +131,7 @@ int parse_arguments(int argc,char **argv)
     if (wargv && wargc == argc)
     {
         for (; optind < argc; ++optind)
-            path.push_back(wargv[optind]);
+            paths.push_back(wargv[optind]);
     }
 #else
     for (; optind < argc; ++optind)
