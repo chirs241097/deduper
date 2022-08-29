@@ -29,3 +29,6 @@ target_link_libraries(testdrive
   ${CMAKE_THREAD_LIBS_INIT}
   xsig
 )
+if(WIN32)
+    target_link_libraries(testdrive shell32 kernel32)
+endif()

@@ -2,6 +2,7 @@
 #include <cstring>
 
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -16,6 +17,8 @@
 
 #ifdef _WIN32 //for the superior operating system
 #include <cwchar>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <processenv.h>
 #include <shellapi.h>
 #endif
@@ -168,18 +171,18 @@ void build_file_list(fs::path path, bool recursive, std::vector<fs::path> &out)
         auto dirit = fs::recursive_directory_iterator(path);
         for (auto &p : dirit)
         {
-            FILE* fp = fopen(p.path().c_str(),"r");
+            std::fstream st(p.path(), std::ios::binary | std::ios::in);
             char c[8];
-            size_t sz = fread((void*)c,1,6,fp);
-                        if (sz < 6) continue;
-            if(!memcmp(c,"\x89PNG\r\n",6)||!memcmp(c,"\xff\xd8\xff",3))
+            st.read(c, 6);
+            if (st.gcount() < 6) continue;
+            if(!memcmp(c,"\x89PNG\r\n", 6) || !memcmp(c,"\xff\xd8\xff", 3))
             {
                 out.push_back(p.path().string());
 #if DEBUG > 0
                 printf("%ld, %s\n", out.size() - 1, out.back().c_str());
 #endif
             }
-            fclose(fp);
+            st.close();
         }
     }
     else
@@ -187,18 +190,18 @@ void build_file_list(fs::path path, bool recursive, std::vector<fs::path> &out)
         auto dirit = fs::directory_iterator(path);
         for(auto &p : dirit)
         {
-            FILE* fp = fopen(p.path().c_str(),"r");
+            std::fstream st(p.path(), std::ios::binary | std::ios::in);
             char c[8];
-            size_t sz = fread((void*)c,1,6,fp);
-                        if (sz < 6) continue;
-            if(!memcmp(c,"\x89PNG\r\n",6)||!memcmp(c,"\xff\xd8\xff",3))
+            st.read(c, 6);
+            if (st.gcount() < 6) continue;
+            if(!memcmp(c,"\x89PNG\r\n", 6) || !memcmp(c,"\xff\xd8\xff", 3))
             {
                 out.push_back(p.path().string());
 #if DEBUG > 0
                 printf("%ld, %s\n", out.size() - 1, out.back().c_str());
 #endif
             }
-            fclose(fp);
+            st.close();
         }
     }
 }
