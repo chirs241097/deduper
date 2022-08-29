@@ -243,7 +243,7 @@ void MinGuiWidget::keyReleaseEvent(QKeyEvent *e)
 }
 
 ImageWidget::ImageWidget(fs::path f, fs::path::string_type dispf, size_t _idx, int max_width, int max_height, QWidget *par)
-    : QWidget(par), fn(QString::fromStdString(f)), idx(_idx)
+    : QWidget(par), fn(fsstr_to_qstring(f)), idx(_idx)
 {
     this->setLayout(new QVBoxLayout(this));
     this->layout()->setMargin(10);
