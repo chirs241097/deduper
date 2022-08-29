@@ -2,3 +2,6 @@ build/
 old/
 doc_internal/
 util_internal/
+mingui/build/
+
+CMakeLists.txt.user
