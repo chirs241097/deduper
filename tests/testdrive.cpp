@@ -268,10 +268,22 @@ int main(int argc,char** argv)
 
     signatures.resize(files.size());
     run();
+    FILE *outf = fopen("result", "wb");
     for(auto &p : out)
     {
         printf("%s %s %f\n", files[p.first].c_str(), files[p.second].c_str(), signatures[p.first].distance(signatures[p.second]));
+        int t;
+        double ts;
+        t = (int)files[p.first].length();
+        fwrite(&t, sizeof(int), 1, outf);
+        fwrite(files[p.first].c_str(), 1, files[p.first].length(), outf);
+        t = (int)files[p.second].length();
+        fwrite(&t, sizeof(int), 1, outf);
+        fwrite(files[p.second].c_str(), 1, files[p.second].length(), outf);
+        ts = signatures[p.first].distance(signatures[p.second]);
+        fwrite(&ts, sizeof(double), 1, outf);
     }
+    fclose(outf);
     return 0;
 }
 
