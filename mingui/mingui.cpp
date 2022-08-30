@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QKeyEvent>
 #include <QString>
+#include <QScrollArea>
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -18,6 +19,7 @@
 #include <QFontDatabase>
 #include <QFileDialog>
 #include <QKeySequence>
+#include <QTextEdit>
 #include <QMessageBox>
 #include <QDesktopServices>
 
@@ -43,23 +45,27 @@ MinGuiWidget::MinGuiWidget()
     this->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
     this->setWindowTitle("deduper minigui");
     this->setLayout(new QVBoxLayout(this));
-    QWidget *c = new QWidget(this);
+    QWidget *everything_except_statusbar = new QWidget(this);
     sb = new QStatusBar(this);
     sb->addPermanentWidget(permamsg = new QLabel());
     QLabel *opm = new QLabel();
     opm->setText("z: previous group, m: next group, x: mark all for deletion, c: unmark all, click: toggle, shift+click: open, shift+return: save list");
     sb->addWidget(opm);
-    this->layout()->addWidget(c);
+    this->layout()->addWidget(everything_except_statusbar);
     this->layout()->addWidget(sb);
-    l = new QHBoxLayout(c);
-    c->setLayout(l);
-    infopanel = new QLabel(this);
+    l = new QHBoxLayout(everything_except_statusbar);
+    everything_except_statusbar->setLayout(l);
+    infopanel = new QTextEdit(this);
+    infopanel->setReadOnly(true);
     imgcontainer = new QWidget(this);
-    l->addWidget(imgcontainer);
+    sa = new QScrollArea(this);
+    sa->setFrameStyle(QFrame::Shape::NoFrame);
+    l->addWidget(sa);
     l->addWidget(infopanel);
     marked.clear();
     infopanel->setText("bleh");
     infopanel->setSizePolicy(QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Minimum);
+    nohotkeywarn = false;
 }
 
 void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
@@ -68,13 +74,21 @@ void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
     marks.clear();
     imgw.clear();
     qDeleteAll(imgcontainer->children());
+    sa->takeWidget();
     imgcontainer->setLayout(new QVBoxLayout(imgcontainer));
-    int max_height = (this->screen()->size().height() / fns.size() * 0.75 - 24) * this->screen()->devicePixelRatio();
+    int max_height = (this->screen()->size().height() / fns.size() * 0.8 - 24) * this->screen()->devicePixelRatio();
     int max_width = this->screen()->size().width() * 0.8 * this->screen()->devicePixelRatio();
+    if (max_height < 64) max_height = 64;
+    if (max_width < 64) max_width = 64;
     fs::path::string_type common_pfx = common_prefix(fns);
     size_t idx = 0;
-    if (fns.size() > keys.size())
-        QMessageBox::warning(this, "Too many duplicates", "Too many duplicates found. Some couldn't be assigned a hotkey.");
+    if (fns.size() > keys.size() && !nohotkeywarn)
+        nohotkeywarn = QMessageBox::StandardButton::Ignore ==
+                       QMessageBox::warning(this,
+                             "Too many duplicates",
+                             "Too many duplicates found. Some couldn't be assigned a hotkey. Ignore = do not show again.",
+                             QMessageBox::StandardButton::Ok | QMessageBox::StandardButton::Ignore,
+                             QMessageBox::StandardButton::Ok);
     for (auto &f : fns)
     {
         marks.push_back(marked.find(f) != marked.end());
@@ -85,6 +99,8 @@ void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
         ++idx;
     }
     mark_view_update(false);
+    imgcontainer->resize(imgcontainer->sizeHint());
+    sa->setWidget(imgcontainer);
 }
 
 void MinGuiWidget::update_distances(const std::map<std::pair<size_t, size_t>, double> &d)
@@ -112,6 +128,7 @@ void MinGuiWidget::save_list()
 {
     QString fn = QFileDialog::getSaveFileName(this, "Save list", QString(), "*.txt");
     FILE *f = fopen(fn.toStdString().c_str(), "w");
+    if (!f) return;
     for (auto &x : this->marked)
 #ifdef _WIN32
         fwprintf(f, L"%ls\n", x.c_str());
@@ -119,6 +136,34 @@ void MinGuiWidget::save_list()
         fprintf(f, "%s\n", x.c_str());
 #endif
     fclose(f);
+}
+
+void MinGuiWidget::load_list()
+{
+    QString fn = QFileDialog::getOpenFileName(this, "Load list", QString(), "*.txt");
+    FILE *f = fopen(fn.toStdString().c_str(), "r");
+    if (!f) return;
+    this->marked.clear();
+    while(!feof(f))
+    {
+#ifdef _WIN32
+        wchar_t buf[32768];
+        fgetws(buf, 32768, f);
+        std::wstring ws(buf);
+        if (ws.back() == L'\n') ws.pop_back();
+        if (!ws.empty()) this->marked.insert(ws);
+#else
+        char buf[32768];
+        fgets(buf, 32768, f);
+        std::string s(buf);
+        if (s.back() == '\n') s.pop_back();
+        if (!s.empty()) this->marked.insert(s);
+#endif
+    }
+    fclose(f);
+    for (size_t i = 0; i < marks.size(); ++i)
+        marks[i] = marked.find(current_set[i]) != marked.end();
+    mark_view_update();
 }
 
 void MinGuiWidget::mark_toggle(size_t x)
@@ -238,15 +283,28 @@ void MinGuiWidget::keyReleaseEvent(QKeyEvent *e)
     {
         case Qt::Key::Key_M: Q_EMIT next(); break;
         case Qt::Key::Key_Z: Q_EMIT prev(); break;
+        case Qt::Key::Key_N: load_list(); break;
         case Qt::Key::Key_Return: if (e->modifiers() & Qt::KeyboardModifier::ShiftModifier) save_list(); break;
     }
+}
+
+void MinGuiWidget::closeEvent(QCloseEvent *e)
+{
+    if (QMessageBox::StandardButton::Yes ==
+        QMessageBox::question(this, "Confirmation", "Really quit?",
+                              QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No,
+                              QMessageBox::StandardButton::No))
+        e->accept();
+    else
+        e->ignore();
 }
 
 ImageWidget::ImageWidget(fs::path f, fs::path::string_type dispf, size_t _idx, int max_width, int max_height, QWidget *par)
     : QWidget(par), fn(fsstr_to_qstring(f)), idx(_idx)
 {
     this->setLayout(new QVBoxLayout(this));
-    this->layout()->setMargin(10);
+    this->layout()->setMargin(8);
+    this->layout()->setSpacing(8);
     im = new QLabel(this);
     this->layout()->addWidget(im);
     QFile imgf(fsstr_to_qstring(f.native()));
@@ -260,11 +318,11 @@ ImageWidget::ImageWidget(fs::path f, fs::path::string_type dispf, size_t _idx, i
     im->setSizePolicy(QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Expanding);
     lb = new QLabel(this);
     this->layout()->addWidget(lb);
-    QString s = QString("<%1>: %2, %3 x %4, %5")
+    QString s = QString("<%1>: %5, %2 x %3, %4")
                 .arg(idx < keys.size() ? QKeySequence(keys[idx]).toString(): QString("(No hotkey available)"))
-                .arg(fsstr_to_qstring(dispf))
                 .arg(imw).arg(imh)
-                .arg(QLocale::system().formattedDataSize(imgf.size(), 3));
+                .arg(QLocale::system().formattedDataSize(imgf.size(), 3))
+                .arg(fsstr_to_qstring(dispf)); //File name may contain '%'s... make it the last
     lb->setTextFormat(Qt::TextFormat::PlainText);
     lb->setText(s);
     lb->setSizePolicy(QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Preferred);

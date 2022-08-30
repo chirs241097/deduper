@@ -11,6 +11,8 @@
 class QHBoxLayout;
 class QLabel;
 class QStatusBar;
+class QScrollArea;
+class QTextEdit;
 
 namespace fs = std::filesystem;
 
@@ -19,10 +21,12 @@ class MinGuiWidget : public QWidget
     Q_OBJECT
 private:
     QHBoxLayout *l;
-    QLabel *infopanel;
+    QTextEdit *infopanel;
     QLabel *permamsg;
     QWidget *imgcontainer;
     QStatusBar *sb;
+    QScrollArea *sa;
+    bool nohotkeywarn;
     void mark_toggle(std::size_t x);
     void mark_all_but(std::size_t x);
     void mark_all();
@@ -36,12 +40,14 @@ private:
 protected:
     void keyPressEvent(QKeyEvent *e) override;
     void keyReleaseEvent(QKeyEvent *e) override;
+    void closeEvent(QCloseEvent *e) override;
 public:
     MinGuiWidget();
     void show_images(const std::vector<std::filesystem::path> &fns);
     void update_distances(const std::map<std::pair<std::size_t, std::size_t>, double> &d);
     void update_permamsg(std::size_t cur, std::size_t size);
     void save_list();
+    void load_list();
 Q_SIGNALS:
     void next();
     void prev();
