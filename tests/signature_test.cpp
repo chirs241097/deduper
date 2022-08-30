@@ -2,18 +2,18 @@
 #include <vector>
 #include "signature.hpp"
 //#include <opencv2/highgui.hpp>
-int main()
+int main(int argc, char **argv)
 {
     std::vector<signature> a;
-    a.push_back(std::move(signature::from_file("img/x.jpg", signature::default_cfg())));
-    a.push_back(std::move(signature::from_file("img/z.jpg", signature::default_cfg())));
+    for (int i = 1; i < argc; ++i)
+        a.push_back(std::move(signature::from_file(argv[i], signature::default_cfg())));
+    if (a.size() < 2) return 0;
     for (size_t i = 0; i < a.size(); ++i)
-    for (size_t j = 0; j < a.size(); ++j)
+    for (size_t j = i + 1; j < a.size(); ++j)
     {
         printf("%lu <-> %lu:", i, j);
         double d = a[i].distance(a[j]);
-        double l = a[i].length() + a[j].length();
-        printf("%f\n", d / l);
+        printf("%f\n", d);
     }
     //while (cv::waitKey(0) != 'q');
     return 0;
