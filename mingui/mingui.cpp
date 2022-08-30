@@ -21,6 +21,7 @@
 #include <QKeySequence>
 #include <QTextEdit>
 #include <QMessageBox>
+#include <QInputDialog>
 #include <QDesktopServices>
 
 using std::size_t;
@@ -119,9 +120,11 @@ void MinGuiWidget::update_distances(const std::map<std::pair<size_t, size_t>, do
     infopanel->setText(r);
 }
 
-void MinGuiWidget::update_permamsg(std::size_t cur, std::size_t size)
+void MinGuiWidget::update_viewstatus(std::size_t cur, std::size_t size)
 {
     permamsg->setText(QString("Viewing group %1 of %2").arg(cur + 1).arg(size));
+    ngroups = size;
+    curgroup = cur;
 }
 
 void MinGuiWidget::save_list()
@@ -284,6 +287,16 @@ void MinGuiWidget::keyReleaseEvent(QKeyEvent *e)
         case Qt::Key::Key_M: Q_EMIT next(); break;
         case Qt::Key::Key_Z: Q_EMIT prev(); break;
         case Qt::Key::Key_N: load_list(); break;
+        case Qt::Key::Key_B:
+        {
+            bool ok = false;
+            int g = QInputDialog::getInt(this, "Skip to group",
+                                         QString("Group # (1-%1)").arg(ngroups),
+                                         curgroup + 1,
+                                         1, ngroups, 1, &ok);
+            if (ok) Q_EMIT switch_group((size_t) g - 1);
+        }
+        break;
         case Qt::Key::Key_Return: if (e->modifiers() & Qt::KeyboardModifier::ShiftModifier) save_list(); break;
     }
 }

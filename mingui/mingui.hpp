@@ -26,6 +26,7 @@ private:
     QWidget *imgcontainer;
     QStatusBar *sb;
     QScrollArea *sa;
+    std::size_t ngroups, curgroup;
     bool nohotkeywarn;
     void mark_toggle(std::size_t x);
     void mark_all_but(std::size_t x);
@@ -45,12 +46,13 @@ public:
     MinGuiWidget();
     void show_images(const std::vector<std::filesystem::path> &fns);
     void update_distances(const std::map<std::pair<std::size_t, std::size_t>, double> &d);
-    void update_permamsg(std::size_t cur, std::size_t size);
+    void update_viewstatus(std::size_t cur, std::size_t size);
     void save_list();
     void load_list();
 Q_SIGNALS:
     void next();
     void prev();
+    void switch_group(std::size_t group);
 };
 
 class ImageWidget : public QWidget

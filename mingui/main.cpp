@@ -128,14 +128,14 @@ int main(int argc, char **argv)
     w = new MinGuiWidget();
     w->show_images(build_list(lists[curlist]));
     w->update_distances(build_dists(lists[curlist]));
-    w->update_permamsg(curlist, lists.size());
+    w->update_viewstatus(curlist, lists.size());
     w->show();
     QObject::connect(w, &MinGuiWidget::next,
                      []{
                            if (curlist < lists.size() - 1) ++curlist;
                            w->show_images(build_list(lists[curlist]));
                            w->update_distances(build_dists(lists[curlist]));
-                           w->update_permamsg(curlist, lists.size());
+                           w->update_viewstatus(curlist, lists.size());
 
     });
     QObject::connect(w, &MinGuiWidget::prev,
@@ -143,7 +143,17 @@ int main(int argc, char **argv)
                            if (curlist > 0) --curlist;
                            w->show_images(build_list(lists[curlist]));
                            w->update_distances(build_dists(lists[curlist]));
-                           w->update_permamsg(curlist, lists.size());
+                           w->update_viewstatus(curlist, lists.size());
+    });
+    QObject::connect(w, &MinGuiWidget::switch_group,
+                     [](size_t g){
+                           if (g < lists.size())
+                           {
+                               curlist = g;
+                               w->show_images(build_list(lists[curlist]));
+                               w->update_distances(build_dists(lists[curlist]));
+                               w->update_viewstatus(curlist, lists.size());
+                           }
     });
 
     a.exec();
