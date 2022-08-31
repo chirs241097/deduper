@@ -1,3 +1,5 @@
+//Chris Xiong 2022
+//License: MPL-2.0
 #ifndef COMPRESSED_VECTOR
 #define COMPRESSED_VECTOR
 

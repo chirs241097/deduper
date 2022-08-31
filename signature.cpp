@@ -1,10 +1,12 @@
+//Chris Xiong 2022
+//License: MPL-2.0
 /* Based on
  * H. Chi Wong, M. Bern and D. Goldberg,
  * "An image signature for any kind of image," Proceedings.
  * International Conference on Image Processing, 2002, pp. I-I,
  * doi: 10.1109/ICIP.2002.1038047.
  * and
- * libpuzzle (which is also based on the article above).
+ * libpuzzle (also an implementation of the article above).
  */
 
 #include <algorithm>
