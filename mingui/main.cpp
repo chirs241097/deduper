@@ -136,7 +136,6 @@ int main(int argc, char **argv)
                            w->show_images(build_list(lists[curlist]));
                            w->update_distances(build_dists(lists[curlist]));
                            w->update_viewstatus(curlist, lists.size());
-
     });
     QObject::connect(w, &MinGuiWidget::prev,
                      []{
