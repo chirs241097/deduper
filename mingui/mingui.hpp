@@ -13,6 +13,9 @@ class QLabel;
 class QStatusBar;
 class QScrollArea;
 class QTextEdit;
+class QListView;
+class QStandardItemModel;
+class ImageItemDelegate;
 
 namespace fs = std::filesystem;
 
@@ -26,6 +29,9 @@ private:
     QWidget *imgcontainer;
     QStatusBar *sb;
     QScrollArea *sa;
+    QListView *lw;
+    QStandardItemModel *im = nullptr;
+    ImageItemDelegate *id = nullptr;
     std::size_t ngroups, curgroup;
     bool nohotkeywarn;
     void mark_toggle(std::size_t x);
@@ -41,6 +47,7 @@ private:
 protected:
     void keyPressEvent(QKeyEvent *e) override;
     void keyReleaseEvent(QKeyEvent *e) override;
+    void resizeEvent(QResizeEvent *e) override;
     void closeEvent(QCloseEvent *e) override;
 public:
     MinGuiWidget();

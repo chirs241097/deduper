@@ -1,4 +1,5 @@
 #include "mingui.hpp"
+#include "imageitem.hpp"
 
 #include <cstdio>
 #include <cwchar>
@@ -8,6 +9,8 @@
 #include <QKeyEvent>
 #include <QString>
 #include <QScrollArea>
+#include <QListView>
+#include <QStandardItemModel>
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -59,9 +62,39 @@ MinGuiWidget::MinGuiWidget()
     infopanel = new QTextEdit(this);
     infopanel->setReadOnly(true);
     imgcontainer = new QWidget(this);
+    lw = new QListView(this);
+    im = new QStandardItemModel(this);
+    lw->setModel(im);
+    id = new ImageItemDelegate();
+    lw->setItemDelegate(id);
+    lw->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
+    lw->setResizeMode(QListView::ResizeMode::Adjust);
+    QObject::connect(lw, &QListView::clicked, [this](const QModelIndex &i) {
+        auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
+        if (cs == Qt::CheckState::Checked)
+            cs = Qt::CheckState::Unchecked;
+        else cs = Qt::CheckState::Checked;
+        this->im->setData(i, cs, Qt::ItemDataRole::CheckStateRole);
+    });
+    QObject::connect(lw, &QListView::doubleClicked, [this](const QModelIndex &i) {
+        auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
+        if (cs == Qt::CheckState::Checked)
+            cs = Qt::CheckState::Unchecked;
+        else cs = Qt::CheckState::Checked;
+        this->im->setData(i, cs, Qt::ItemDataRole::CheckStateRole);
+        QDesktopServices::openUrl(QUrl::fromLocalFile(i.data(ImageItem::ImageItemRoles::path_role).toString()));
+    });
+    QObject::connect(im, &QStandardItemModel::itemChanged, [this](QStandardItem *i) {
+        ImageItem *itm = static_cast<ImageItem*>(i);
+        QModelIndex idx = itm->index();
+        bool checked = itm->data(Qt::ItemDataRole::CheckStateRole) == Qt::CheckState::Checked;
+        if (checked != marks[idx.row()])
+            this->mark_toggle(idx.row());
+    });
     sa = new QScrollArea(this);
     sa->setFrameStyle(QFrame::Shape::NoFrame);
     l->addWidget(sa);
+    l->addWidget(lw);
     l->addWidget(infopanel);
     marked.clear();
     infopanel->setText("bleh");
@@ -74,6 +107,7 @@ void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
     current_set = fns;
     marks.clear();
     imgw.clear();
+    im->clear();
     qDeleteAll(imgcontainer->children());
     sa->takeWidget();
     imgcontainer->setLayout(new QVBoxLayout(imgcontainer));
@@ -94,6 +128,7 @@ void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
     {
         marks.push_back(marked.find(f) != marked.end());
         ImageWidget *tw = new ImageWidget(f, f.native().substr(common_pfx.length()), idx, max_width, max_height, this);
+        im->appendRow(new ImageItem(fsstr_to_qstring(f.native()), fsstr_to_qstring(f.native().substr(common_pfx.length())), keys[idx], lw->devicePixelRatioF()));
         QObject::connect(tw, &ImageWidget::clicked, [this, idx] { this->mark_toggle(idx); });
         imgw.push_back(tw);
         imgcontainer->layout()->addWidget(tw);
@@ -230,10 +265,14 @@ void MinGuiWidget::mark_view_update(bool update_msg)
         if (marks[i])
         {
             p.setColor(QPalette::ColorRole::Window, Qt::GlobalColor::red);
+            im->item(i)->setCheckState(Qt::CheckState::Checked);
             ++m;
         }
         else
+        {
             p.setColor(QPalette::ColorRole::Window, this->palette().color(QPalette::ColorRole::Window));
+            im->item(i)->setCheckState(Qt::CheckState::Unchecked);
+        }
         imgw[i]->setBackgroundRole(QPalette::ColorRole::Window);
         imgw[i]->setAutoFillBackground(true);
         imgw[i]->setPalette(p);
@@ -299,6 +338,14 @@ void MinGuiWidget::keyReleaseEvent(QKeyEvent *e)
         break;
         case Qt::Key::Key_Return: if (e->modifiers() & Qt::KeyboardModifier::ShiftModifier) save_list(); break;
     }
+}
+
+void MinGuiWidget::resizeEvent(QResizeEvent *e)
+{
+    QWidget::resizeEvent(e);
+    if (!id || !im) return;
+    for (int i = 0; i < im->rowCount(); ++i)
+        id->resize(im->indexFromItem(im->item(i)));
 }
 
 void MinGuiWidget::closeEvent(QCloseEvent *e)

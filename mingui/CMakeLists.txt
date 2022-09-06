@@ -17,6 +17,7 @@ set(CMAKE_AUTOUIC ON)
 add_executable(mingui
     main.cpp
     mingui.cpp
+    imageitem.cpp
 )
 
 target_link_libraries(mingui
