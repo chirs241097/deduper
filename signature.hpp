@@ -5,7 +5,6 @@
 
 #include <memory>
 #include <filesystem>
-#include <opencv2/core.hpp>
 
 struct signature_config
 {
@@ -18,6 +17,11 @@ struct signature_config
     double noise_threshold;
     double contrast_threshold;
     double max_cropping;
+};
+
+namespace cv
+{
+    class Mat;
 };
 
 class signature_priv;
@@ -49,7 +53,7 @@ public:
      * Then it will be passed to from_preprocessed_matrix.
      * The matrix doesn't have to be continuous.
      */
-    static signature from_cvmatrix(cv::Mat m, const signature_config &cfg);
+    static signature from_cvmatrix(cv::Mat *m, const signature_config &cfg);
 
     /*
      * Input must be a single channel, floating point matrix
@@ -58,7 +62,7 @@ public:
      * STILL *Will* be cropped if config().crop == true
      * STILL *Will* be blurred if config().blur_window > 1
      */
-    static signature from_preprocessed_matrix(cv::Mat m, const signature_config &cfg);
+    static signature from_preprocessed_matrix(cv::Mat *m, const signature_config &cfg);
 
     static signature_config default_cfg();
 

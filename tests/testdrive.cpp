@@ -209,7 +209,7 @@ void build_file_list(fs::path path, bool recursive, std::vector<fs::path> &out)
 void job_func(int thid, size_t id)
 {
     cv::Mat img = image_util::imread_path(files[id], cv::IMREAD_UNCHANGED);
-    signature s = signature::from_cvmatrix(img, cfg_full);
+    signature s = signature::from_cvmatrix(&img, cfg_full);
 #if DEBUG > 1
     s.dump();
 #endif
@@ -223,7 +223,8 @@ void job_func(int thid, size_t id)
         int r = (i == nsliceh) ? img.size().width : (i + 1) * ssw;
         int t = j * ssh;
         int b = (j == nslicev) ? img.size().height : (j + 1) * ssh;
-        subsigs.push_back(std::move(signature::from_cvmatrix(img(cv::Range(t, b), cv::Range(l, r)), cfg_subslice)));
+        cv::Mat slice = img(cv::Range(t, b), cv::Range(l, r));
+        subsigs.push_back(std::move(signature::from_cvmatrix(&slice, cfg_subslice)));
 #if DEBUG > 0
         printf("%ld, (%d, %d) %lu\n", id, i, j, signature_hash{}(subsigs.back()));
 #endif

@@ -8,6 +8,7 @@
  * and
  * libpuzzle (also an implementation of the article above).
  */
+#include "signature.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -21,7 +22,6 @@
 
 #include "compressed_vector.hpp"
 #include "imageutil.hpp"
-#include "signature.hpp"
 
 static signature_config _default_cfg =
 {
@@ -239,15 +239,15 @@ bool signature::operator==(const signature &o) const
     return *p == *o.p;
 }
 
-signature signature::from_preprocessed_matrix(cv::Mat m, const signature_config &cfg)
+signature signature::from_preprocessed_matrix(cv::Mat *m, const signature_config &cfg)
 {
     signature_priv *p = new signature_priv;
     p->cfg = cfg;
 
     if (cfg.crop)
-        p->fimg = image_util::crop(m, cfg.contrast_threshold, cfg.max_cropping);
+        p->fimg = image_util::crop(*m, cfg.contrast_threshold, cfg.max_cropping);
     else
-        p->fimg = m;
+        p->fimg = *m;
     if (cfg.blur_window > 1)
         cv::blur(p->fimg, p->fimg, cv::Size(cfg.blur_window, cfg.blur_window));
     p->get_light_charistics();
@@ -259,35 +259,35 @@ signature signature::from_preprocessed_matrix(cv::Mat m, const signature_config 
     return signature(p);
 }
 
-signature signature::from_cvmatrix(cv::Mat m, const signature_config &cfg)
+signature signature::from_cvmatrix(cv::Mat *m, const signature_config &cfg)
 {
     cv::Mat ma, bw;
     double sc = 1;
-    switch (m.depth())
+    switch (m->depth())
     {
         case CV_8U: sc = 1. / 255; break;
         case CV_16U: sc = 1. / 65535; break;
     }
-    m.convertTo(ma, CV_32F, sc);
-    if (m.channels() == 4)
+    m->convertTo(ma, CV_32F, sc);
+    if (m->channels() == 4)
         ma = image_util::blend_white(ma);
     if (ma.channels() == 3)
         cv::cvtColor(ma, bw, cv::COLOR_RGB2GRAY);
     else
         bw = ma;
-    return signature::from_preprocessed_matrix(bw, cfg);
+    return signature::from_preprocessed_matrix(&bw, cfg);
 }
 
 signature signature::from_file(const char *fn, const signature_config &cfg)
 {
     cv::Mat img = cv::imread(fn, cv::IMREAD_UNCHANGED);
-    return signature::from_cvmatrix(img, cfg);
+    return signature::from_cvmatrix(&img, cfg);
 }
 
 signature signature::from_path(const std::filesystem::path &path, const signature_config &cfg)
 {
     cv::Mat img = image_util::imread_path(path, cv::IMREAD_UNCHANGED);
-    return signature::from_cvmatrix(img, cfg);
+    return signature::from_cvmatrix(&img, cfg);
 }
 
 signature_config signature::default_cfg()
