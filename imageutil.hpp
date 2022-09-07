@@ -12,8 +12,6 @@
 
 #define sqr(x) ((x) * (x))
 
-
-
 namespace image_util
 {
     cv::Mat crop(cv::InputArray s, double contrast_threshold, double max_crop_ratio);

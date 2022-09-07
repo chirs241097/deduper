@@ -9,6 +9,6 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 
 include_directories(.)
 
-add_library(xsig STATIC imageutil.cpp signature.cpp)
+add_library(xsig STATIC imageutil.cpp signature.cpp subslice_signature.cpp)
 
 add_subdirectory(tests)
