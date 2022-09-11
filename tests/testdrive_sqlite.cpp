@@ -5,14 +5,9 @@
 #include <fstream>
 #include <set>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <thread>
-
-#include <opencv2/core.hpp>
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/imgproc.hpp>
 
 #include <getopt.h>
 
@@ -27,10 +22,9 @@
 #include <shellapi.h>
 #endif
 
-#include <sqlite3.h>
-
 #include "signature.hpp"
-#include "imageutil.hpp"
+#include "subslice_signature.hpp"
+#include "signature_db.hpp"
 
 #include "thread_pool.hpp"
 
@@ -85,14 +79,9 @@ struct sig_eq
 
 typedef std::pair<size_t, int> slice_info;
 
-sqlite3 *db;
+signature_db *sdb;
 
-//std::unordered_map<signature, std::vector<slice_info>, signature_hash, sig_eq> slices;
-//std::vector<signature> signatures;
-//std::mutex sigmtx;
-std::vector<std::pair<size_t, size_t>> out;
-
-int parse_arguments(int argc,char **argv)
+int parse_arguments(int argc, char **argv)
 {
     recursive = 0;
     int help = 0;
@@ -217,84 +206,39 @@ void build_file_list(fs::path path, bool recursive, std::vector<fs::path> &out)
 
 void job_func(int thid, size_t id)
 {
-    cv::Mat img = image_util::imread_path(files[id], cv::IMREAD_UNCHANGED);
-    signature s = signature::from_cvmatrix(&img, cfg_full);
-#if DEBUG > 1
-    s.dump();
-#endif
-    int ssw = img.size().width / nsliceh;
-    int ssh = img.size().height / nslicev;
-    std::vector<signature> subsigs;
-    for (int i = 0; i < nsliceh; ++i)
-    for (int j = 0; j < nslicev; ++j)
-    {
-        int l = i * ssw;
-        int r = (i == nsliceh) ? img.size().width : (i + 1) * ssw;
-        int t = j * ssh;
-        int b = (j == nslicev) ? img.size().height : (j + 1) * ssh;
-        cv::Mat slice = img(cv::Range(t, b), cv::Range(l, r));
-        subsigs.push_back(std::move(signature::from_cvmatrix(&slice, cfg_subslice)));
-#if DEBUG > 0
-        printf("%ld, (%d, %d) %lu\n", id, i, j, signature_hash{}(subsigs.back()));
-#endif
-#if DEBUG > 1
-        subsigs.back().dump();
-#endif
-    }
+    subsliced_signature ss = subsliced_signature::from_path(files[id], nsliceh, nslicev, cfg_full, cfg_subslice);
 
     printf("%d %lu\r", thid, id);
     fflush(stdout);
 
-    sqlite3_mutex *mtx = sqlite3_db_mutex(db);
-    sqlite3_mutex_enter(mtx);
+    sdb->lock();
     std::set<size_t> v;
-    for (int i = 0; i < nsliceh * nslicev; ++i)
+    sdb->batch_find_subslice_begin();
+    for (size_t i = 0; i < nsliceh * nslicev; ++i)
     {
-        std::string ssigt = subsigs[i].to_string();
-        sqlite3_stmt *st;
-        sqlite3_prepare_v2(db, "select image, slice from subslices where slicesig = ?;", -1, &st, 0);
-        sqlite3_bind_text(st, 1, ssigt.c_str(), -1, nullptr);
-        while (1)
+        std::vector<subslice_t> ssmatches = sdb->find_subslice(ss.subslices[i]);
+        for (auto &match : ssmatches)
         {
-            int r = sqlite3_step(st);
-            if (r != SQLITE_ROW) break;
-            size_t im = sqlite3_column_int(st, 0);
-            size_t sl = sqlite3_column_int(st, 1);
-            if (sl == i && v.find(im) == v.end())
+            if (match.slice == i && v.find(match.id) == v.end())
             {
-                sqlite3_stmt *st1;
-                sqlite3_prepare_v2(db, "select signature from signatures where id = ?;", -1, &st1, 0);
-                sqlite3_bind_int(st1, 1, im);
-                int rr = sqlite3_step(st1);
-                if (rr == SQLITE_ROW)
-                {
-                    std::string txt((char*)sqlite3_column_text(st1, 0));
-                    signature ss = signature::from_string(std::move(txt));
-                    if (s.distance(ss) < threshold)
-                        out.emplace_back(id, im);
-                }
-                v.insert(im);
-                sqlite3_finalize(st1);
+                signature othersig;
+                std::tie(std::ignore, othersig) = sdb->get_signature(match.id);
+                double dist = ss.full.distance(othersig);
+                if (dist < threshold)
+                    sdb->put_dupe_pair(id, match.id, dist);
             }
         }
-        sqlite3_finalize(st);
-        std::string ssigs = subsigs[i].to_string();
-        sqlite3_prepare_v2(db, "insert into subslices (image, slice, slicesig) values(?, ?, ?);", -1, &st, 0);
-        sqlite3_bind_int(st, 1, id);
-        sqlite3_bind_int(st, 2, i);
-        sqlite3_bind_text(st, 3, ssigs.c_str(), -1, nullptr);
-        sqlite3_step(st);
-        sqlite3_finalize(st);
     }
-    sqlite3_stmt *st;
-    std::string sigs = s.to_string();
-    sqlite3_prepare_v2(db, "insert into signatures (id, path, signature) values(?, ?, ?);", -1, &st, 0);
-    sqlite3_bind_int(st, 1, id);
-    sqlite3_bind_text(st, 2, files[id].c_str(), -1, nullptr);
-    sqlite3_bind_text(st, 3, sigs.c_str(), -1, nullptr);
-    sqlite3_step(st);
-    sqlite3_finalize(st);
-    sqlite3_mutex_leave(mtx);
+    sdb->batch_end();
+
+    sdb->batch_put_subslice_begin();
+    for (size_t i = 0; i < nsliceh * nslicev; ++i)
+        sdb->put_subslice(id, i, ss.subslices[i]);
+    sdb->batch_end();
+
+    sdb->put_signature(id, files[id], ss.full);
+
+    sdb->unlock();
 }
 
 void run()
@@ -314,51 +258,34 @@ int main(int argc,char** argv)
     for (auto &p : paths)
         build_file_list(p, recursive, files);
     printf("%lu files to compare.\n", files.size());
+    puts("initializing database...");
+    sdb = new signature_db();
     puts("computing signature vectors...");
-    sqlite3_config(SQLITE_CONFIG_SERIALIZED);
-    //sqlite3_open("test.db", &db);
-    sqlite3_open(":memory:", &db);
-    sqlite3_exec(db, "create table signatures(id int primary key, path text, signature text);", nullptr, nullptr, nullptr);
-    sqlite3_exec(db, "create table subslices(image int, slice int, slicesig text);", nullptr, nullptr, nullptr);
-    sqlite3_exec(db, "create index ssidx on subslices(slicesig);", nullptr, nullptr, nullptr);
 
     run();
     FILE *outf = fopen("result", "wb");
-    for (auto &p : out)
+
+    std::vector<dupe_t> dupes = sdb->dupe_pairs();
+    for (auto &p : dupes)
     {
-        sqlite3_stmt *st;
-        sqlite3_prepare_v2(db, "select signature from signatures where id = ? or id = ?;", -1, &st, 0);
-        sqlite3_bind_int(st, 1, p.first);
-        sqlite3_bind_int(st, 2, p.second);
-        std::vector<signature> sx;
-        while (1)
-        {
-            int rr = sqlite3_step(st);
-            if (rr == SQLITE_ROW)
-            {
-                std::string txt((char*)sqlite3_column_text(st, 0));
-                sx.push_back(std::move(signature::from_string(std::move(txt))));
-            }
-            else break;
-        }
-        sqlite3_finalize(st);
 #if PATH_VALSIZE == 2
-        wprintf(L"%ls %ls %f\n", files[p.first].c_str(), files[p.second].c_str(), sx[0].distance(sx[1]));
+        wprintf(L"%ls %ls %f\n", files[p.id1].c_str(), files[p.id2].c_str(), p.distance);
 #else
-        printf("%s %s %f\n", files[p.first].c_str(), files[p.second].c_str(), sx[0].distance(sx[1]));
+        printf("%s %s %f\n", files[p.id1].c_str(), files[p.id2].c_str(), p.distance);
 #endif
         int t;
         double ts=0;
-        t = (int)files[p.first].native().length();
+        t = (int)files[p.id1].native().length();
         fwrite(&t, sizeof(int), 1, outf);
-        fwrite(files[p.first].c_str(), sizeof(fs::path::value_type), t, outf);
-        t = (int)files[p.second].native().length();
+        fwrite(files[p.id1].c_str(), sizeof(fs::path::value_type), t, outf);
+        t = (int)files[p.id2].native().length();
         fwrite(&t, sizeof(int), 1, outf);
-        fwrite(files[p.second].c_str(), sizeof(fs::path::value_type), t, outf);
-        //ts = signatures[p.first].distance(signatures[p.second]);
+        fwrite(files[p.id2].c_str(), sizeof(fs::path::value_type), t, outf);
+        ts = p.distance;
         fwrite(&ts, sizeof(double), 1, outf);
     }
     fclose(outf);
+    sdb->to_db_file("test.sigdb");
+    delete sdb;
     return 0;
 }
-
