@@ -35,7 +35,9 @@ signature_db::signature_db()
         create table subslices(
             image int,
             slice int,
-            slicesig text
+            slicesig text,
+            primary key (image, slice),
+            foreign key (image) references images (id)
         );
     )sql", nullptr, nullptr, nullptr);
     sqlite3_exec(p->db, R"sql(
@@ -46,7 +48,8 @@ signature_db::signature_db()
             id1 int,
             id2 int,
             dist real,
-            primary key (id1, id2)
+            primary key (id1, id2),
+            foreign key (id1, id2) references images (id, id)
         );
     )sql", nullptr, nullptr, nullptr);
     p->bst = nullptr;
