@@ -65,7 +65,7 @@ void signature_db::put_signature(size_t id, const fs::path &path, const signatur
 {
     sqlite3_stmt *st;
     std::string sigs = sig.to_string();
-    sqlite3_prepare_v2(p->db, "insert into signatures (id, path, signature) values(?, ?, ?);", -1, &st, 0);
+    sqlite3_prepare_v2(p->db, "insert into images (id, path, signature) values(?, ?, ?);", -1, &st, 0);
     sqlite3_bind_int(st, 1, id);
 #if PATH_VALSIZE == 2
     sqlite3_bind_text16(st, 2, path.c_str(), -1, nullptr);
@@ -80,7 +80,7 @@ void signature_db::put_signature(size_t id, const fs::path &path, const signatur
 std::pair<fs::path, signature> signature_db::get_signature(size_t id)
 {
     sqlite3_stmt *st;
-    sqlite3_prepare_v2(p->db, "select path, signature from signatures where id = ?;", -1, &st, 0);
+    sqlite3_prepare_v2(p->db, "select path, signature from images where id = ?;", -1, &st, 0);
     sqlite3_bind_int(st, 1, id);
     int rr = sqlite3_step(st);
     if (rr == SQLITE_ROW)
