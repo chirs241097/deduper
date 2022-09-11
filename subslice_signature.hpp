@@ -1,5 +1,7 @@
 //Chris Xiong 2022
 //License: MPL-2.0
+#ifndef SUBSLICE_SIGNATURE_HPP
+#define SUBSLICE_SIGNATURE_HPP
 #include "signature.hpp"
 
 #include <vector>
@@ -30,3 +32,5 @@ public:
                                              const signature_config &fcfg,
                                              const signature_config &scfg);
 };
+
+#endif

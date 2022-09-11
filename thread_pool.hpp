@@ -1,3 +1,5 @@
+//Chris Xiong 2022
+//License: MPL-2.0
 #ifndef THREAD_POOL_H
 #define THREAD_POOL_H
 
