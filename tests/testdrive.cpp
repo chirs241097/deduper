@@ -15,8 +15,11 @@
 
 #include <getopt.h>
 
-#ifdef _WIN32 //for the superior operating system
+#if PATH_VALSIZE == 2
 #include <cwchar>
+#endif
+
+#ifdef _WIN32 //for the superior operating system
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <processenv.h>
@@ -294,7 +297,7 @@ int main(int argc,char** argv)
     FILE *outf = fopen("result", "wb");
     for (auto &p : out)
     {
-#ifdef _WIN32
+#if PATH_VALSIZE == 2
         wprintf(L"%ls %ls %f\n", files[p.first].c_str(), files[p.second].c_str(), signatures[p.first].distance(signatures[p.second]));
 #else
         printf("%s %s %f\n", files[p.first].c_str(), files[p.second].c_str(), signatures[p.first].distance(signatures[p.second]));

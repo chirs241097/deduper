@@ -7,6 +7,14 @@ find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs highgui)
 find_package(Threads REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
+INCLUDE (CheckTypeSize)
+
+SET(CMAKE_EXTRA_INCLUDE_FILES "filesystem")
+check_type_size("std::filesystem::path::value_type" PATH_VALSIZE LANGUAGE CXX)
+SET(CMAKE_EXTRA_INCLUDE_FILES)
+
+add_compile_definitions(PATH_VALSIZE=${PATH_VALSIZE})
+
 include_directories(.)
 
 add_library(xsig STATIC imageutil.cpp signature.cpp subslice_signature.cpp base64.cpp)
