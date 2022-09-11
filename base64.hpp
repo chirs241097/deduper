@@ -3,9 +3,6 @@
 #include <cstdint>
 #include <string>
 
-std::string base64_encode(const void *data, size_t len);
-void* base64_decode(const std::string &s, size_t *rel);
-
 class Base64Encoder
 {
 private:
