@@ -17,6 +17,14 @@ add_compile_definitions(PATH_VALSIZE=${PATH_VALSIZE})
 
 include_directories(.)
 
-add_library(xsig STATIC imageutil.cpp signature.cpp subslice_signature.cpp base64.cpp)
+add_library(xsig STATIC
+    imageutil.cpp
+    signature.cpp
+    subslice_signature.cpp
+    signature_db.cpp
+    base64.cpp
+)
+
+target_compile_options(xsig PRIVATE -Werror=return-type)
 
 add_subdirectory(tests)

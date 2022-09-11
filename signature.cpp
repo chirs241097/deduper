@@ -216,6 +216,9 @@ void signature::dump() const
     if (p) p->dump();
 }
 
+bool signature::valid() const
+{return (bool)p;}
+
 signature signature::clone() const
 {
     return signature(*this);

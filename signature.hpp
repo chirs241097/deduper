@@ -40,6 +40,7 @@ public:
     signature& operator=(signature&&)=default;
     signature clone() const;//do not use unless absolutely needed
     void dump() const;
+    bool valid() const;
     double length() const;
     double distance(const signature &o) const;
     bool operator ==(const signature &o) const;
