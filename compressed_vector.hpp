@@ -5,7 +5,10 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <cassert>
 #include <vector>
+
+#include "base64.hpp"
 
 template <class T, int B>
 struct compressed_vector_hash;
@@ -31,8 +34,7 @@ public:
         //assert(v <= M);
         if (sz % P == 0)
             v.push_back(0);
-        set(sz, val);
-        ++sz;
+        set(sz++, val);
     }
     void pop_back()
     {
@@ -47,12 +49,12 @@ public:
     T back() const {return get(sz - 1);}
     T get(size_t i) const
     {
-        //assert(i < sz);
+        assert(i < sz && (i / P) < v.size());
         return (T)((v[i / P] >> (i % P * B)) & M);
     }
     void set(size_t i, T val)
     {
-        //assert(i < sz);
+        assert(i < sz && (i / P) < v.size());
         v[i / P] &= ~(M << (i % P * B));
         v[i / P] |= ((uint64_t) val) << (i % P * B);
     }
@@ -69,6 +71,24 @@ public:
     bool operator ==(const compressed_vector& other) const
     {
         return sz == other.sz && v == other.v;
+    }
+
+    // unsafe stuff! potentially invariant-breaking. only use for data exchanging.
+    void internal_container_resize(size_t ds)
+    {
+        v.resize(ds);
+    }
+    size_t internal_container_size()
+    {
+        return v.size();
+    }
+    void* internal_data()
+    {
+        return v.data();
+    }
+    void internal_set_size(int sz)
+    {
+        this->sz = sz;
     }
 
     friend struct compressed_vector_hash<T, B>;

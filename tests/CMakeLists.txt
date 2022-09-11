@@ -1,18 +1,27 @@
 add_executable(compressed_vector compressed_vector.cpp)
 target_link_libraries(compressed_vector
-  ${OpenCV_LIBS}
+  xsig
+)
+
+add_executable(base64_test base64_test.cpp)
+target_link_libraries(base64_test
   xsig
 )
 
 add_executable(image_util_tests image_util_tests.cpp)
 target_link_libraries(image_util_tests
-  ${OpenCV_LIBS}
+  opencv_core
+  opencv_imgcodecs
+  opencv_imgproc
+  opencv_highgui
   xsig
 )
 
 add_executable(signature_test signature_test.cpp)
 target_link_libraries(signature_test
-  ${OpenCV_LIBS}
+  opencv_core
+  opencv_imgcodecs
+  opencv_imgproc
   xsig
 )
 
@@ -25,10 +34,27 @@ target_link_libraries(signature_test
 
 add_executable(testdrive testdrive.cpp)
 target_link_libraries(testdrive
-  ${OpenCV_LIBS}
+  opencv_core
+  opencv_imgcodecs
+  opencv_imgproc
   ${CMAKE_THREAD_LIBS_INIT}
   xsig
 )
 if(WIN32)
     target_link_libraries(testdrive shell32 kernel32)
+endif()
+
+find_package(SQLite3 REQUIRED)
+include_directories(${SQLite3_INCLUDE_DIRS})
+add_executable(testdrive_sqlite testdrive_sqlite.cpp)
+target_link_libraries(testdrive_sqlite
+  opencv_core
+  opencv_imgcodecs
+  opencv_imgproc
+  ${SQLite3_LIBRARIES}
+  ${CMAKE_THREAD_LIBS_INIT}
+  xsig
+)
+if(WIN32)
+    target_link_libraries(testdrive_sqlite shell32 kernel32)
 endif()

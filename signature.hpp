@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <filesystem>
+#include <string>
 
 struct signature_config
 {
@@ -42,6 +43,9 @@ public:
     double length() const;
     double distance(const signature &o) const;
     bool operator ==(const signature &o) const;
+    std::string to_string() const;
+
+    static signature from_string(std::string &&s);
 
     static signature from_path(const std::filesystem::path &path, const signature_config &cfg);
 

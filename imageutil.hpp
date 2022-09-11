@@ -3,6 +3,7 @@
 #ifndef IMAGEUTIL_HPP
 #define IMAGEUTIL_HPP
 
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <vector>

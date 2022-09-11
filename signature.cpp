@@ -239,6 +239,32 @@ bool signature::operator==(const signature &o) const
     return *p == *o.p;
 }
 
+std::string signature::to_string() const
+{
+    if (!p || !p->compressed) return std::string();
+    Base64Encoder enc;
+    size_t sz = p->ct.size();
+    enc.encode_data(&p->cfg, sizeof(signature_config));
+    enc.encode_data(&sz, sizeof(size_t));
+    enc.encode_data(p->ct.internal_data(), p->ct.internal_container_size() * 8);
+    return enc.finalize();
+}
+
+signature signature::from_string(std::string &&s)
+{
+    signature_priv *p = new signature_priv;
+    Base64Decoder dec(std::move(s));
+    size_t sz;
+    p->compressed = true;
+    size_t s1 = dec.decode_data(&p->cfg, sizeof(signature_config));
+    size_t s2 = dec.decode_data(&sz, sizeof(size_t));
+    size_t s3 = dec.decoded_length() - s1 - s2;
+    p->ct.internal_set_size(sz);
+    p->ct.internal_container_resize(s3 / 8);
+    dec.decode_data(p->ct.internal_data(), s3);
+    return signature(p);
+}
+
 signature signature::from_preprocessed_matrix(cv::Mat *m, const signature_config &cfg)
 {
     signature_priv *p = new signature_priv;
