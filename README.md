@@ -20,6 +20,11 @@ core mobile processor with hyperthreading.
 
 **: Planned.
 
+In its core, Deduper uses a variation of similar image detection algorithm described in
+H. Chi Wong, M. Bern and D. Goldberg, "An image signature for any kind of image,"
+Proceedings. International Conference on Image Processing, 2002, pp. I-I,
+doi: 10.1109/ICIP.2002.1038047.
+
 ## License
 
 Mozilla Public License 2.0
