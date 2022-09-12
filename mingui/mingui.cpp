@@ -53,15 +53,15 @@ MinGuiWidget::MinGuiWidget()
     this->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
     this->setWindowTitle("deduper minigui");
     this->setLayout(new QVBoxLayout(this));
-    sb = new QStatusBar(this);
+    sb = this->statusBar();
     sb->addPermanentWidget(permamsg = new QLabel());
     QLabel *opm = new QLabel();
     opm->setText("placeholder status bar text");
     sb->addWidget(opm);
     l = new QSplitter(Qt::Orientation::Horizontal, this);
+    l->setContentsMargins(6, 6, 6, 6);
     l->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    this->layout()->addWidget(l);
-    this->layout()->addWidget(sb);
+    this->setCentralWidget(l);
     infopanel = new QTextEdit(this);
     infopanel->setReadOnly(true);
     infopanel->setMinimumWidth(80);
@@ -78,6 +78,9 @@ MinGuiWidget::MinGuiWidget()
     lw->setResizeMode(QListView::ResizeMode::Adjust);
     lw->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
     lw->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
+    lw->setHorizontalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
+    lw->setVerticalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
+    lw->setMinimumWidth(240);
 
     for (size_t i = 0; i < keys.size(); ++i)
     {
@@ -154,6 +157,7 @@ MinGuiWidget::MinGuiWidget()
     l->addWidget(infopanel);
     l->setStretchFactor(0, 3);
     l->setStretchFactor(1, 1);
+    l->setCollapsible(0, false);
     marked.clear();
     infopanel->setText("bleh");
     infopanel->setSizePolicy(QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Minimum);

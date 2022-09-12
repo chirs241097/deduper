@@ -6,7 +6,7 @@
 #include <string>
 #include <unordered_set>
 
-#include <QWidget>
+#include <QMainWindow>
 #include <QList>
 
 class QHBoxLayout;
@@ -21,7 +21,7 @@ class ImageItemDelegate;
 
 namespace fs = std::filesystem;
 
-class MinGuiWidget : public QWidget
+class MinGuiWidget : public QMainWindow
 {
     Q_OBJECT
 private:
