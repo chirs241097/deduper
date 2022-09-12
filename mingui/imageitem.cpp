@@ -6,7 +6,6 @@
 #include <QFileInfo>
 #include <QPixmap>
 #include <QListView>
-#include <QScrollBar>
 #include <QFontMetrics>
 #include <QPainter>
 #include <QLocale>
@@ -84,21 +83,19 @@ void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opt
     painter->setFont(option.font);
     painter->setPen(option.widget->palette().color(QPalette::ColorGroup::Normal, QPalette::ColorRole::Text));
     painter->drawText(r, infos, topt);
-    r = option.fontMetrics.boundingRect(fns);
-    r.moveTopRight(QPoint(option.rect.right() - MARGIN - BORDER, ftopright.y() + (hkbg.height() - r.height()) / 2));
-    painter->drawText(r, fns, topt);
+    topt.setAlignment(Qt::AlignmentFlag::AlignRight);
+    r.setLeft(r.right());
+    r.setRight(imr.right());
+    QString efns = option.fontMetrics.elidedText(fns, Qt::TextElideMode::ElideMiddle, r.width());
+    painter->drawText(r, efns, topt);
 }
 
 QSize ImageItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
 {
     const QListView *lw = qobject_cast<const QListView*>(option.widget);
     QSize vpsz = lw->maximumViewportSize();
-    QScrollBar *vsc = lw->verticalScrollBar();
-    if (vsc->isVisible())
-        vpsz.setWidth(vpsz.width() - vsc->size().width());
-    QScrollBar *hsc = lw->horizontalScrollBar();
-    if (hsc->isVisible())
-        vpsz.setHeight(vpsz.height() - vsc->size().height());
+    vpsz.setWidth(vpsz.width() - vw);
+    vpsz.setHeight(vpsz.height() - hh);
     QPixmap pm = index.data(Qt::ItemDataRole::DecorationRole).value<QPixmap>();
     QSize onscsz = pm.size() / pm.devicePixelRatioF();
     int imh = onscsz.height();
@@ -112,7 +109,15 @@ QSize ImageItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QMod
     int min_height = 64;
     int max_height = imh;
 
+    QSize dim = index.data(ImageItem::ImageItemRoles::dimension_role).value<QSize>();
+    qint64 fsz = index.data(ImageItem::ImageItemRoles::file_size_role).value<qint64>();
+    QString infos = QString("%1 x %2, %3")
+                    .arg(dim.width()).arg(dim.height())
+                    .arg(QLocale::system().formattedDataSize(fsz, 3));
+    int textw = option.fontMetrics.boundingRect(infos).width() + fm.height() + 2 * HKPADD + 48;
+
     QSize ret(vpsz);
+    if (textw > vpsz.width()) ret.setWidth(textw);
     ret.setHeight(vpsz.height() / index.model()->rowCount() - lw->spacing());
     ret.setHeight(std::max(min_height + extra_height, ret.height()));
     ret.setHeight(std::min(max_height + extra_height, ret.height()));
@@ -122,4 +127,10 @@ QSize ImageItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QMod
 void ImageItemDelegate::resize(const QModelIndex &index)
 {
     Q_EMIT sizeHintChanged(index);
+}
+
+void ImageItemDelegate::setScrollbarMargins(int vw, int hh)
+{
+    this->vw = vw;
+    this->hh = hh;
 }

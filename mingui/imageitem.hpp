@@ -28,10 +28,13 @@ private:
     const static int HKPADD = 4;
     const static int LINESP = 4;
     const static int HKSHDS = 2;
+    int vw = -1;
+    int hh = -1;
 public:
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const;
     void resize(const QModelIndex &index);
+    void setScrollbarMargins(int vw, int hh);
 Q_SIGNALS:
     void sizeHintChanged(const QModelIndex &index);
 };

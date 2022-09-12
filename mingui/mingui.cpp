@@ -8,7 +8,9 @@
 #include <QDebug>
 #include <QCloseEvent>
 #include <QMouseEvent>
+#include <QScrollBar>
 #include <QAction>
+#include <QSplitter>
 #include <QString>
 #include <QScrollArea>
 #include <QListView>
@@ -51,25 +53,31 @@ MinGuiWidget::MinGuiWidget()
     this->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
     this->setWindowTitle("deduper minigui");
     this->setLayout(new QVBoxLayout(this));
-    QWidget *everything_except_statusbar = new QWidget(this);
     sb = new QStatusBar(this);
     sb->addPermanentWidget(permamsg = new QLabel());
     QLabel *opm = new QLabel();
-    opm->setText("z: previous group, m: next group, x: mark all for deletion, c: unmark all, click: toggle, shift+click: open, shift+return: save list");
+    opm->setText("placeholder status bar text");
     sb->addWidget(opm);
-    this->layout()->addWidget(everything_except_statusbar);
+    l = new QSplitter(Qt::Orientation::Horizontal, this);
+    l->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    this->layout()->addWidget(l);
     this->layout()->addWidget(sb);
-    l = new QHBoxLayout(everything_except_statusbar);
-    everything_except_statusbar->setLayout(l);
     infopanel = new QTextEdit(this);
     infopanel->setReadOnly(true);
+    infopanel->setMinimumWidth(80);
     lw = new QListView(this);
     im = new QStandardItemModel(this);
     lw->setModel(im);
+    lw->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
+    lw->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
     id = new ImageItemDelegate();
+    id->setScrollbarMargins(lw->verticalScrollBar()->width(),
+                            lw->horizontalScrollBar()->height());
     lw->setItemDelegate(id);
     lw->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
     lw->setResizeMode(QListView::ResizeMode::Adjust);
+    lw->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
+    lw->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
 
     for (size_t i = 0; i < keys.size(); ++i)
     {
@@ -144,6 +152,8 @@ MinGuiWidget::MinGuiWidget()
     });
     l->addWidget(lw);
     l->addWidget(infopanel);
+    l->setStretchFactor(0, 3);
+    l->setStretchFactor(1, 1);
     marked.clear();
     infopanel->setText("bleh");
     infopanel->setSizePolicy(QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Minimum);

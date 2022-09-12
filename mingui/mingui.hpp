@@ -15,6 +15,7 @@ class QStatusBar;
 class QScrollArea;
 class QTextEdit;
 class QListView;
+class QSplitter;
 class QStandardItemModel;
 class ImageItemDelegate;
 
@@ -24,7 +25,7 @@ class MinGuiWidget : public QWidget
 {
     Q_OBJECT
 private:
-    QHBoxLayout *l;
+    QSplitter *l;
     QTextEdit *infopanel;
     QLabel *permamsg;
     QStatusBar *sb;
