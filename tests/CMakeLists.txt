@@ -10,11 +10,11 @@ target_link_libraries(base64_test
 
 add_executable(image_util_tests image_util_tests.cpp)
 target_link_libraries(image_util_tests
+  xsig
   opencv_core
   opencv_imgcodecs
   opencv_imgproc
   opencv_highgui
-  xsig
 )
 
 add_executable(signature_test signature_test.cpp)
