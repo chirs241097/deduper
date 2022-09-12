@@ -19,10 +19,10 @@ target_link_libraries(image_util_tests
 
 add_executable(signature_test signature_test.cpp)
 target_link_libraries(signature_test
+  xsig
   opencv_core
   opencv_imgcodecs
   opencv_imgproc
-  xsig
 )
 
 #add_executable(deduper_legacy deduper_legacy.cpp)
@@ -34,26 +34,24 @@ target_link_libraries(signature_test
 
 add_executable(testdrive testdrive.cpp)
 target_link_libraries(testdrive
+  xsig
   opencv_core
   opencv_imgcodecs
   opencv_imgproc
   ${CMAKE_THREAD_LIBS_INIT}
-  xsig
 )
 if(WIN32)
     target_link_libraries(testdrive shell32 kernel32)
 endif()
 
-find_package(SQLite3 REQUIRED)
-include_directories(${SQLite3_INCLUDE_DIRS})
 add_executable(testdrive_sqlite testdrive_sqlite.cpp)
 target_link_libraries(testdrive_sqlite
+  xsig
   opencv_core
   opencv_imgcodecs
   opencv_imgproc
   ${SQLite3_LIBRARIES}
   ${CMAKE_THREAD_LIBS_INIT}
-  xsig
 )
 if(WIN32)
     target_link_libraries(testdrive_sqlite shell32 kernel32)

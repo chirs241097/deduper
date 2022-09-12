@@ -4,8 +4,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(OpenCV REQUIRED COMPONENTS core imgproc imgcodecs highgui)
+find_package(SQLite3 REQUIRED)
 find_package(Threads REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(${SQLite3_INCLUDE_DIRS})
 
 INCLUDE (CheckTypeSize)
 
