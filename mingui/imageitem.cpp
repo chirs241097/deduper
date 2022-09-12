@@ -77,20 +77,16 @@ void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opt
                     .arg(dim.width()).arg(dim.height())
                     .arg(QLocale::system().formattedDataSize(fsz, 3));
     QString fns = index.data(Qt::ItemDataRole::DisplayRole).toString();
+    QTextOption topt;
+    topt.setWrapMode(QTextOption::WrapMode::NoWrap);
     r = option.fontMetrics.boundingRect(infos);
     r.moveTopLeft(ftopright + QPoint(0, (hkbg.height() - r.height()) / 2));
     painter->setFont(option.font);
     painter->setPen(option.widget->palette().color(QPalette::ColorGroup::Normal, QPalette::ColorRole::Text));
-    painter->drawText(r, infos);
+    painter->drawText(r, infos, topt);
     r = option.fontMetrics.boundingRect(fns);
     r.moveTopRight(QPoint(option.rect.right() - MARGIN - BORDER, ftopright.y() + (hkbg.height() - r.height()) / 2));
-    painter->drawText(r, fns);
-    /*
-    painter->setPen(QColor(Qt::GlobalColor::red));
-    painter->drawRect(QRect(imr.topLeft(), imd));
-    painter->drawRect(txt);
-    painter->setPen(option.widget->palette().color(QPalette::ColorRole::Text));
-    */
+    painter->drawText(r, fns, topt);
 }
 
 QSize ImageItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
