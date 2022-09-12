@@ -263,7 +263,6 @@ int main(int argc,char** argv)
     puts("computing signature vectors...");
 
     run();
-    FILE *outf = fopen("result", "wb");
 
     std::vector<dupe_t> dupes = sdb->dupe_pairs();
     for (auto &p : dupes)
@@ -273,18 +272,7 @@ int main(int argc,char** argv)
 #else
         printf("%s %s %f\n", files[p.id1].c_str(), files[p.id2].c_str(), p.distance);
 #endif
-        int t;
-        double ts=0;
-        t = (int)files[p.id1].native().length();
-        fwrite(&t, sizeof(int), 1, outf);
-        fwrite(files[p.id1].c_str(), sizeof(fs::path::value_type), t, outf);
-        t = (int)files[p.id2].native().length();
-        fwrite(&t, sizeof(int), 1, outf);
-        fwrite(files[p.id2].c_str(), sizeof(fs::path::value_type), t, outf);
-        ts = p.distance;
-        fwrite(&ts, sizeof(double), 1, outf);
     }
-    fclose(outf);
     sdb->to_db_file("test.sigdb");
     delete sdb;
     return 0;
