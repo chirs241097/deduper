@@ -175,7 +175,7 @@ void build_file_list(fs::path path, bool recursive, std::vector<fs::path> &out)
             if (st.gcount() < 6) continue;
             if(!memcmp(c,"\x89PNG\r\n", 6) || !memcmp(c,"\xff\xd8\xff", 3))
             {
-                out.push_back(p.path().string());
+                out.push_back(p.path());
 #if DEBUG > 0
                 printf("%ld, %s\n", out.size() - 1, out.back().c_str());
 #endif
@@ -194,7 +194,7 @@ void build_file_list(fs::path path, bool recursive, std::vector<fs::path> &out)
             if (st.gcount() < 6) continue;
             if(!memcmp(c,"\x89PNG\r\n", 6) || !memcmp(c,"\xff\xd8\xff", 3))
             {
-                out.push_back(p.path().string());
+                out.push_back(p.path());
 #if DEBUG > 0
                 printf("%ld, %s\n", out.size() - 1, out.back().c_str());
 #endif
