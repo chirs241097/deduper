@@ -63,7 +63,6 @@ MinGuiWidget::MinGuiWidget()
     everything_except_statusbar->setLayout(l);
     infopanel = new QTextEdit(this);
     infopanel->setReadOnly(true);
-    imgcontainer = new QWidget(this);
     lw = new QListView(this);
     im = new QStandardItemModel(this);
     lw->setModel(im);
@@ -118,7 +117,7 @@ MinGuiWidget::MinGuiWidget()
     this->addAction(skip);
     QAction *save = new QAction();
     save->setShortcut(QKeySequence(Qt::Modifier::SHIFT | Qt::Key::Key_Return));
-    QObject::connect(load, &QAction::triggered, [this]{Q_EMIT this->save_list();});
+    QObject::connect(save, &QAction::triggered, [this]{Q_EMIT this->save_list();});
     this->addAction(save);
 
     QObject::connect(lw, &QListView::clicked, [this](const QModelIndex &i) {
@@ -143,9 +142,6 @@ MinGuiWidget::MinGuiWidget()
         if (checked != marks[idx.row()])
             this->mark_toggle(idx.row());
     });
-    sa = new QScrollArea(this);
-    sa->setFrameStyle(QFrame::Shape::NoFrame);
-    l->addWidget(sa);
     l->addWidget(lw);
     l->addWidget(infopanel);
     marked.clear();
@@ -158,11 +154,7 @@ void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
 {
     current_set = fns;
     marks.clear();
-    imgw.clear();
     im->clear();
-    qDeleteAll(imgcontainer->children());
-    sa->takeWidget();
-    imgcontainer->setLayout(new QVBoxLayout(imgcontainer));
     int max_height = (this->screen()->size().height() / fns.size() * 0.8 - 24) * this->screen()->devicePixelRatio();
     int max_width = this->screen()->size().width() * 0.8 * this->screen()->devicePixelRatio();
     if (max_height < 64) max_height = 64;
@@ -179,16 +171,10 @@ void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
     for (auto &f : fns)
     {
         marks.push_back(marked.find(f) != marked.end());
-        ImageWidget *tw = new ImageWidget(f, f.native().substr(common_pfx.length()), idx, max_width, max_height, this);
         im->appendRow(new ImageItem(fsstr_to_qstring(f.native()), fsstr_to_qstring(f.native().substr(common_pfx.length())), keys[idx], lw->devicePixelRatioF()));
-        QObject::connect(tw, &ImageWidget::clicked, [this, idx] { this->mark_toggle(idx); });
-        imgw.push_back(tw);
-        imgcontainer->layout()->addWidget(tw);
         ++idx;
     }
     mark_view_update(false);
-    imgcontainer->resize(imgcontainer->sizeHint());
-    sa->setWidget(imgcontainer);
 }
 
 void MinGuiWidget::update_distances(const std::map<std::pair<size_t, size_t>, double> &d)
@@ -313,21 +299,15 @@ void MinGuiWidget::mark_view_update(bool update_msg)
     size_t m = 0;
     for (size_t i = 0; i < current_set.size(); ++i)
     {
-        QPalette p = imgw[i]->palette();
         if (marks[i])
         {
-            p.setColor(QPalette::ColorRole::Window, Qt::GlobalColor::red);
             im->item(i)->setCheckState(Qt::CheckState::Checked);
             ++m;
         }
         else
         {
-            p.setColor(QPalette::ColorRole::Window, this->palette().color(QPalette::ColorRole::Window));
             im->item(i)->setCheckState(Qt::CheckState::Unchecked);
         }
-        imgw[i]->setBackgroundRole(QPalette::ColorRole::Window);
-        imgw[i]->setAutoFillBackground(true);
-        imgw[i]->setPalette(p);
     }
     if (update_msg)
     sb->showMessage(QString("%1 of %2 marked for deletion").arg(m).arg(current_set.size()), 1000);
@@ -372,56 +352,4 @@ void MinGuiWidget::closeEvent(QCloseEvent *e)
         e->accept();
     else
         e->ignore();
-}
-
-ImageWidget::ImageWidget(fs::path f, fs::path::string_type dispf, size_t _idx, int max_width, int max_height, QWidget *par)
-    : QWidget(par), fn(fsstr_to_qstring(f)), idx(_idx)
-{
-    this->setLayout(new QVBoxLayout(this));
-    this->layout()->setMargin(8);
-    this->layout()->setSpacing(8);
-    im = new QLabel(this);
-    this->layout()->addWidget(im);
-    QFile imgf(fsstr_to_qstring(f.native()));
-    QPixmap pm(fsstr_to_qstring(f.native()));
-    int imw = pm.width();
-    int imh = pm.height();
-    pm.setDevicePixelRatio(this->screen()->devicePixelRatio());
-    if (pm.width() > max_width || pm.height() > max_height)
-        pm = pm.scaled(max_width, max_height, Qt::AspectRatioMode::KeepAspectRatio, Qt::TransformationMode::SmoothTransformation);
-    im->setPixmap(pm);
-    im->setSizePolicy(QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Expanding);
-    lb = new QLabel(this);
-    this->layout()->addWidget(lb);
-    QString s = QString("<%1>: %5, %2 x %3, %4")
-                .arg(idx < keys.size() ? QKeySequence(keys[idx]).toString(): QString("(No hotkey available)"))
-                .arg(imw).arg(imh)
-                .arg(QLocale::system().formattedDataSize(imgf.size(), 3))
-                .arg(fsstr_to_qstring(dispf)); //File name may contain '%'s... make it the last
-    lb->setTextFormat(Qt::TextFormat::PlainText);
-    lb->setText(s);
-    lb->setSizePolicy(QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Preferred);
-}
-
-void ImageWidget::set_marked(bool marked)
-{
-    QPalette p = this->palette();
-    if (marked)
-        p.setColor(QPalette::ColorRole::Window, Qt::GlobalColor::red);
-    else
-        p.setColor(QPalette::ColorRole::Window, qobject_cast<QWidget*>(parent())->palette().color(QPalette::ColorRole::Window));
-    this->setBackgroundRole(QPalette::ColorRole::Window);
-    this->setAutoFillBackground(true);
-    this->setPalette(p);
-}
-
-void ImageWidget::mouseReleaseEvent(QMouseEvent *event)
-{
-    if (event->button() == Qt::MouseButton::LeftButton)
-    {
-        if (event->modifiers() & Qt::KeyboardModifier::ShiftModifier)
-            QDesktopServices::openUrl(QUrl::fromLocalFile(fn));
-        else
-            Q_EMIT clicked();
-    }
 }

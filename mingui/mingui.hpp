@@ -27,9 +27,7 @@ private:
     QHBoxLayout *l;
     QTextEdit *infopanel;
     QLabel *permamsg;
-    QWidget *imgcontainer;
     QStatusBar *sb;
-    QScrollArea *sa;
     QListView *lw;
     QList<QAction*> selhk;
     QStandardItemModel *im = nullptr;
@@ -42,7 +40,6 @@ private:
     void mark_none();
     void mark_view_update(bool update_msg = true);
     fs::path::string_type common_prefix(const std::vector<fs::path> &fns);
-    std::vector<QWidget*> imgw;
     std::vector<bool> marks;
     std::unordered_set<fs::path> marked;
     std::vector<fs::path> current_set;
@@ -60,23 +57,6 @@ Q_SIGNALS:
     void next();
     void prev();
     void switch_group(std::size_t group);
-};
-
-class ImageWidget : public QWidget
-{
-    Q_OBJECT
-private:
-    QString fn;
-    std::size_t idx;
-    QLabel *im;
-    QLabel *lb;
-protected:
-    void mouseReleaseEvent(QMouseEvent *event) override;
-public:
-    ImageWidget(fs::path f, fs::path::string_type dispfn, std::size_t _idx, int max_width, int max_height, QWidget *par);
-    void set_marked(bool marked);
-Q_SIGNALS:
-    void clicked();
 };
 
 #endif
