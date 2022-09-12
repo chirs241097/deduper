@@ -7,6 +7,7 @@
 #include <unordered_set>
 
 #include <QWidget>
+#include <QList>
 
 class QHBoxLayout;
 class QLabel;
@@ -30,6 +31,7 @@ private:
     QStatusBar *sb;
     QScrollArea *sa;
     QListView *lw;
+    QList<QAction*> selhk;
     QStandardItemModel *im = nullptr;
     ImageItemDelegate *id = nullptr;
     std::size_t ngroups, curgroup;
@@ -45,8 +47,6 @@ private:
     std::unordered_set<fs::path> marked;
     std::vector<fs::path> current_set;
 protected:
-    void keyPressEvent(QKeyEvent *e) override;
-    void keyReleaseEvent(QKeyEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
     void closeEvent(QCloseEvent *e) override;
 public:

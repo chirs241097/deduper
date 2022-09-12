@@ -6,7 +6,9 @@
 #include <type_traits>
 
 #include <QDebug>
-#include <QKeyEvent>
+#include <QCloseEvent>
+#include <QMouseEvent>
+#include <QAction>
 #include <QString>
 #include <QScrollArea>
 #include <QListView>
@@ -69,6 +71,56 @@ MinGuiWidget::MinGuiWidget()
     lw->setItemDelegate(id);
     lw->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
     lw->setResizeMode(QListView::ResizeMode::Adjust);
+
+    for (size_t i = 0; i < keys.size(); ++i)
+    {
+        auto &k = keys[i];
+        QAction *a = new QAction();
+        a->setShortcut(QKeySequence(k));
+        QObject::connect(a, &QAction::triggered, [this, i](){this->mark_toggle(i);});
+        selhk.push_back(a);
+        QAction *sa = new QAction();
+        sa->setShortcut(QKeySequence(Qt::Modifier::SHIFT | k));
+        QObject::connect(sa, &QAction::triggered, [this, i](){this->mark_all_but(i);});
+        selhk.push_back(a);
+    }
+    this->addActions(selhk);
+    QAction *mall = new QAction();
+    mall->setShortcut(QKeySequence(Qt::Key::Key_X));
+    QObject::connect(mall, &QAction::triggered, [this]{this->mark_all();});
+    this->addAction(mall);
+    QAction *mnone = new QAction();
+    mnone->setShortcut(QKeySequence(Qt::Key::Key_C));
+    QObject::connect(mnone, &QAction::triggered, [this]{this->mark_none();});
+    this->addAction(mnone);
+    QAction *nxt = new QAction();
+    nxt->setShortcut(QKeySequence(Qt::Key::Key_M));
+    QObject::connect(nxt, &QAction::triggered, [this]{Q_EMIT this->next();});
+    this->addAction(nxt);
+    QAction *prv = new QAction();
+    prv->setShortcut(QKeySequence(Qt::Key::Key_Z));
+    QObject::connect(prv, &QAction::triggered, [this]{Q_EMIT this->prev();});
+    this->addAction(prv);
+    QAction *load = new QAction();
+    load->setShortcut(QKeySequence(Qt::Key::Key_N));
+    QObject::connect(load, &QAction::triggered, [this]{Q_EMIT this->load_list();});
+    this->addAction(load);
+    QAction *skip = new QAction();
+    skip->setShortcut(QKeySequence(Qt::Key::Key_B));
+    QObject::connect(skip, &QAction::triggered, [this]{
+        bool ok = false;
+        int g = QInputDialog::getInt(this, "Skip to group",
+                                     QString("Group # (1-%1)").arg(ngroups),
+                                     curgroup + 1,
+                                     1, ngroups, 1, &ok);
+        if (ok) Q_EMIT switch_group((size_t) g - 1);
+    });
+    this->addAction(skip);
+    QAction *save = new QAction();
+    save->setShortcut(QKeySequence(Qt::Modifier::SHIFT | Qt::Key::Key_Return));
+    QObject::connect(load, &QAction::triggered, [this]{Q_EMIT this->save_list();});
+    this->addAction(save);
+
     QObject::connect(lw, &QListView::clicked, [this](const QModelIndex &i) {
         auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
         if (cs == Qt::CheckState::Checked)
@@ -301,43 +353,6 @@ fs::path::string_type MinGuiWidget::common_prefix(const std::vector<fs::path> &f
             return fs::path(ret.substr(0, p + 1));
     }
     return ret;
-}
-
-void MinGuiWidget::keyPressEvent(QKeyEvent *e)
-{
-    for (auto &k : keys)
-    if (e->key() == k)
-    {
-        if (e->modifiers() & Qt::KeyboardModifier::ShiftModifier)
-            this->mark_all_but(&k - &keys[0]);
-        else this->mark_toggle(&k - &keys[0]);
-    }
-    switch (e->key())
-    {
-        case Qt::Key::Key_X: this->mark_all(); break;
-        case Qt::Key::Key_C: this->mark_none(); break;
-    }
-}
-
-void MinGuiWidget::keyReleaseEvent(QKeyEvent *e)
-{
-    switch (e->key())
-    {
-        case Qt::Key::Key_M: Q_EMIT next(); break;
-        case Qt::Key::Key_Z: Q_EMIT prev(); break;
-        case Qt::Key::Key_N: load_list(); break;
-        case Qt::Key::Key_B:
-        {
-            bool ok = false;
-            int g = QInputDialog::getInt(this, "Skip to group",
-                                         QString("Group # (1-%1)").arg(ngroups),
-                                         curgroup + 1,
-                                         1, ngroups, 1, &ok);
-            if (ok) Q_EMIT switch_group((size_t) g - 1);
-        }
-        break;
-        case Qt::Key::Key_Return: if (e->modifiers() & Qt::KeyboardModifier::ShiftModifier) save_list(); break;
-    }
 }
 
 void MinGuiWidget::resizeEvent(QResizeEvent *e)
