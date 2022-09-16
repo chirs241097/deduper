@@ -4,7 +4,7 @@
 
 #include "signature_db.hpp"
 
-const int SIGDB_VERSION = 1;
+const int SIGDB_VERSION = 2;
 
 enum batch_status
 {
@@ -39,15 +39,15 @@ void signature_db_priv::init_db()
 
     sqlite3_exec(db, R"sql(
         create table images(
-            id int primary key,
+            id integer primary key,
             path text,
             signature text
         );
     )sql", nullptr, nullptr, nullptr);
     sqlite3_exec(db, R"sql(
         create table subslices(
-            image int,
-            slice int,
+            image integer,
+            slice integer,
             slicesig text,
             primary key (image, slice),
             foreign key (image) references images (id)
@@ -58,8 +58,8 @@ void signature_db_priv::init_db()
     )sql", nullptr, nullptr, nullptr);
     sqlite3_exec(db, R"sql(
         create table dupes(
-            id1 int,
-            id2 int,
+            id1 integer,
+            id2 integer,
             dist real,
             primary key (id1, id2),
             foreign key (id1, id2) references images (id, id)
@@ -123,13 +123,16 @@ signature_db::~signature_db()
 bool signature_db::valid()
 { return static_cast<bool>(p->db); }
 
-void signature_db::put_signature(size_t id, const fs::path &path, const signature &sig)
+size_t signature_db::put_signature(const fs::path &path, const signature &sig,size_t id)
 {
-    if (!p->db) [[ unlikely ]] return;
+    if (!p->db) [[ unlikely ]] return ~size_t(0);
     sqlite3_stmt *st;
     std::string sigs = sig.to_string();
     sqlite3_prepare_v2(p->db, "insert into images (id, path, signature) values(?, ?, ?);", -1, &st, 0);
-    sqlite3_bind_int(st, 1, id);
+    if (!~id)
+        sqlite3_bind_null(st, 1);
+    else
+        sqlite3_bind_int(st, 1, id);
 #if PATH_VALSIZE == 2
     sqlite3_bind_text16(st, 2, path.c_str(), -1, nullptr);
 #else
@@ -138,6 +141,7 @@ void signature_db::put_signature(size_t id, const fs::path &path, const signatur
     sqlite3_bind_text(st, 3, sigs.c_str(), -1, nullptr);
     sqlite3_step(st);
     sqlite3_finalize(st);
+    return static_cast<size_t>(sqlite3_last_insert_rowid(p->db));
 }
 
 std::pair<fs::path, signature> signature_db::get_signature(size_t id)

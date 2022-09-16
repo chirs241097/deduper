@@ -213,6 +213,8 @@ void job_func(int thid, size_t id)
 
     sdb->lock();
     std::set<size_t> v;
+    size_t dbid = sdb->put_signature(files[id], ss.full);
+
     sdb->batch_find_subslice_begin();
     for (size_t i = 0; i < nsliceh * nslicev; ++i)
     {
@@ -225,7 +227,7 @@ void job_func(int thid, size_t id)
                 std::tie(std::ignore, othersig) = sdb->get_signature(match.id);
                 double dist = ss.full.distance(othersig);
                 if (dist < threshold)
-                    sdb->put_dupe_pair(id, match.id, dist);
+                    sdb->put_dupe_pair(dbid, match.id, dist);
             }
         }
     }
@@ -233,10 +235,8 @@ void job_func(int thid, size_t id)
 
     sdb->batch_put_subslice_begin();
     for (size_t i = 0; i < nsliceh * nslicev; ++i)
-        sdb->put_subslice(id, i, ss.subslices[i]);
+        sdb->put_subslice(dbid, i, ss.subslices[i]);
     sdb->batch_end();
-
-    sdb->put_signature(id, files[id], ss.full);
 
     sdb->unlock();
 }

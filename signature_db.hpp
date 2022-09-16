@@ -36,8 +36,10 @@ public:
     bool valid();
 
     //insert image signature into database
-    //id must be unique
-    void put_signature(size_t id, const fs::path &path, const signature &sig);
+    //if id is omitted, it's assigned automatically and returned
+    //if specificted, id must be unique
+    //treat automatically assigned id as arbitrary opaque integers
+    size_t put_signature(const fs::path &path, const signature &sig, size_t id = ~size_t(0));
     //get image signature from database
     std::pair<fs::path, signature> get_signature(size_t id);
 
