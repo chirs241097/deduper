@@ -21,8 +21,19 @@ class signature_db
 private:
     signature_db_priv *p;
 public:
-    signature_db();
+    //open a signature database
+    //if dbpath is an empty path (default), the database will reside in RAM
+    //and will be automatically initialized
+    //otherwise it opens the database specified by dbpath
+    //if the database specified by dbpath doesn't exist, it will be created
+    //and initialized
+    //if the database file exists but is not a valid signature database, it
+    //will be immediately closed and any subsequent calls to this signature db
+    //object will do nothing. The object will be marked invalid.
+    signature_db(const fs::path &dbpath = fs::path());
     ~signature_db();
+
+    bool valid();
 
     //insert image signature into database
     //id must be unique

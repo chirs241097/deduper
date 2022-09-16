@@ -4,6 +4,8 @@
 
 #include "signature_db.hpp"
 
+const int SIGDB_VERSION = 1;
+
 enum batch_status
 {
     single = 0,
@@ -17,21 +19,32 @@ struct signature_db_priv
     sqlite3_mutex *mtx;
     sqlite3_stmt *bst;
     batch_status batch_mode;
+
+    void init_db();
+    bool verify_db();
 };
 
-signature_db::signature_db()
+void signature_db_priv::init_db()
 {
-    p = new signature_db_priv();
-    sqlite3_open(":memory:", &p->db);
-    p->mtx = sqlite3_db_mutex(p->db);
-    sqlite3_exec(p->db, R"sql(
+    sqlite3_exec(db, R"sql(
+        create table sigdbinfo(
+            version int
+        );
+    )sql", nullptr, nullptr, nullptr);
+    sqlite3_stmt *vst;
+    sqlite3_prepare_v2(db, "insert into sigdbinfo (version) values(?);", -1, &vst, 0);
+    sqlite3_bind_int(vst, 1, SIGDB_VERSION);
+    sqlite3_step(vst);
+    sqlite3_finalize(vst);
+
+    sqlite3_exec(db, R"sql(
         create table images(
             id int primary key,
             path text,
             signature text
         );
     )sql", nullptr, nullptr, nullptr);
-    sqlite3_exec(p->db, R"sql(
+    sqlite3_exec(db, R"sql(
         create table subslices(
             image int,
             slice int,
@@ -40,10 +53,10 @@ signature_db::signature_db()
             foreign key (image) references images (id)
         );
     )sql", nullptr, nullptr, nullptr);
-    sqlite3_exec(p->db, R"sql(
+    sqlite3_exec(db, R"sql(
         create index ssidx on subslices(slicesig);
     )sql", nullptr, nullptr, nullptr);
-    sqlite3_exec(p->db, R"sql(
+    sqlite3_exec(db, R"sql(
         create table dupes(
             id1 int,
             id2 int,
@@ -52,20 +65,67 @@ signature_db::signature_db()
             foreign key (id1, id2) references images (id, id)
         );
     )sql", nullptr, nullptr, nullptr);
+}
+
+bool signature_db_priv::verify_db()
+{
+    sqlite3_stmt *vst;
+    sqlite3_prepare_v2(db, "select version from sigdbinfo;", -1, &vst, 0);
+    if (sqlite3_step(vst) != SQLITE_ROW) {sqlite3_finalize(vst); return false;}
+    if (SIGDB_VERSION != sqlite3_column_int(vst, 0)) {sqlite3_finalize(vst); return false;}
+    sqlite3_finalize(vst);
+    return true;
+}
+
+signature_db::signature_db(const fs::path &dbpath)
+{
+    p = new signature_db_priv();
+    if (dbpath.empty())
+    {
+        sqlite3_open(":memory:", &p->db);
+        p->init_db();
+    }
+    else
+    {
+        bool need_init = !fs::is_regular_file(dbpath);
+#if PATH_VALSIZE == 2
+        sqlite3_open16(dbpath.c_str(), &p->db);
+#else
+        sqlite3_open(dbpath.c_str(), &p->db);
+#endif
+        if (need_init) p->init_db();
+    }
+
+    p->mtx = sqlite3_db_mutex(p->db);
     p->bst = nullptr;
     p->batch_mode = batch_status::single;
+    if (!p->verify_db())
+    {
+        sqlite3_close(p->db);
+        p->db = nullptr;
+        p->mtx = nullptr;
+    }
 }
 
 signature_db::~signature_db()
 {
+    if (!p->db) [[ unlikely ]]
+    {
+        delete p;
+        return;
+    }
     if (p->bst)
         sqlite3_finalize(p->bst);
     sqlite3_close(p->db);
     delete p;
 }
 
+bool signature_db::valid()
+{ return static_cast<bool>(p->db); }
+
 void signature_db::put_signature(size_t id, const fs::path &path, const signature &sig)
 {
+    if (!p->db) [[ unlikely ]] return;
     sqlite3_stmt *st;
     std::string sigs = sig.to_string();
     sqlite3_prepare_v2(p->db, "insert into images (id, path, signature) values(?, ?, ?);", -1, &st, 0);
@@ -82,6 +142,7 @@ void signature_db::put_signature(size_t id, const fs::path &path, const signatur
 
 std::pair<fs::path, signature> signature_db::get_signature(size_t id)
 {
+    if (!p->db) [[ unlikely ]] return std::make_pair(fs::path(), signature());
     sqlite3_stmt *st;
     sqlite3_prepare_v2(p->db, "select path, signature from images where id = ?;", -1, &st, 0);
     sqlite3_bind_int(st, 1, id);
@@ -106,12 +167,14 @@ std::pair<fs::path, signature> signature_db::get_signature(size_t id)
 
 void signature_db::batch_put_subslice_begin()
 {
+    if (!p->db) [[ unlikely ]] return;
     p->batch_mode = batch_status::putsub;
     sqlite3_prepare_v2(p->db, "insert into subslices (image, slice, slicesig) values(?, ?, ?);", -1, &p->bst, 0);
 }
 
 void signature_db::put_subslice(size_t id, size_t slice, const signature &slicesig)
 {
+    if (!p->db) [[ unlikely ]] return;
     sqlite3_stmt *st = nullptr;
     if (p->batch_mode == batch_status::putsub)
         st = p->bst;
@@ -130,12 +193,14 @@ void signature_db::put_subslice(size_t id, size_t slice, const signature &slices
 
 void signature_db::batch_find_subslice_begin()
 {
+    if (!p->db) [[ unlikely ]] return;
     p->batch_mode = batch_status::findsub;
     sqlite3_prepare_v2(p->db, "select image, slice from subslices where slicesig = ?;", -1, &p->bst, 0);
 }
 
 std::vector<subslice_t> signature_db::find_subslice(const signature &slicesig)
 {
+    if (!p->db) [[ unlikely ]] return {};
     sqlite3_stmt *st = nullptr;
     if (p->batch_mode == batch_status::findsub)
         st = p->bst;
@@ -163,6 +228,7 @@ std::vector<subslice_t> signature_db::find_subslice(const signature &slicesig)
 
 void signature_db::batch_end()
 {
+    if (!p->db) [[ unlikely ]] return;
     p->batch_mode = batch_status::single;
     sqlite3_finalize(p->bst);
     p->bst = nullptr;
@@ -170,6 +236,7 @@ void signature_db::batch_end()
 
 void signature_db::put_dupe_pair(size_t ida, size_t idb, double dist)
 {
+    if (!p->db) [[ unlikely ]] return;
     sqlite3_stmt *st = nullptr;
     sqlite3_prepare_v2(p->db, "insert into dupes (id1, id2, dist) values(?, ?, ?);", -1, &st, 0);
     sqlite3_bind_int(st, 1, ida);
@@ -180,6 +247,7 @@ void signature_db::put_dupe_pair(size_t ida, size_t idb, double dist)
 }
 std::vector<dupe_t> signature_db::dupe_pairs()
 {
+    if (!p->db) [[ unlikely ]] return {};
     sqlite3_stmt *st = nullptr;
     sqlite3_prepare_v2(p->db, "select id1, id2, dist from dupes;", -1, &st, 0);
     std::vector<dupe_t> ret;
@@ -198,12 +266,19 @@ std::vector<dupe_t> signature_db::dupe_pairs()
 }
 
 void signature_db::lock()
-{sqlite3_mutex_enter(p->mtx);}
+{
+    if (!p->db) [[ unlikely ]] return;
+    sqlite3_mutex_enter(p->mtx);
+}
 void signature_db::unlock()
-{sqlite3_mutex_leave(p->mtx);}
+{
+    if (!p->db) [[ unlikely ]] return;
+    sqlite3_mutex_leave(p->mtx);
+}
 
 bool signature_db::to_db_file(const fs::path &path)
 {
+    if (!p->db) [[ unlikely ]] return false;
     sqlite3 *dest;
     int r;
 #if PATH_VALSIZE == 2
@@ -227,6 +302,7 @@ bool signature_db::to_db_file(const fs::path &path)
 }
 bool signature_db::from_db_file(const fs::path &path)
 {
+    if (!p->db) [[ unlikely ]] return false;
     sqlite3 *src;
     int r;
 #if PATH_VALSIZE == 2
