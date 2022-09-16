@@ -20,15 +20,15 @@ void testb64class()
         buf[i] = rand() % 128;
     for (size_t i = 0; i < l2; ++i)
         bug[i] = rand() % 128;
-    Base64Encoder enc;
+    base64_encoder enc;
     enc.encode_data(buf, l1);
     enc.encode_data(bug, l2);
     std::string s = enc.finalize();
     std::string ss = enc.finalize();
-    Base64Decoder dec(std::move(s));
+    base64_decoder dec(std::move(s));
     assert(dec.decoded_length() == l1 + l2);
 
-    Base64Decoder decc(std::move(s));
+    base64_decoder decc(std::move(s));
     size_t xx = decc.decode_data(buh, 32768);
     for (size_t i = 0; i < xx; ++i)
         printf("%d ", buh[i]);

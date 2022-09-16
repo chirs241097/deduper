@@ -6,11 +6,11 @@
 
 #include "base64.hpp"
 
-const char *Base64Encoder::b64c = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const char *base64_encoder::b64c = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-Base64Encoder::Base64Encoder() : counter(0), rem(0), ret(std::string()) {}
+base64_encoder::base64_encoder() : counter(0), rem(0), ret(std::string()) {}
 
-void Base64Encoder::encode_data(const void *data, size_t len)
+void base64_encoder::encode_data(const void *data, size_t len)
 {
     const uint8_t *u8d = (uint8_t*) data;
     for (size_t i = 0; i < len; ++i)
@@ -37,7 +37,7 @@ void Base64Encoder::encode_data(const void *data, size_t len)
     }
 }
 
-std::string Base64Encoder::finalize()
+std::string base64_encoder::finalize()
 {
     if (counter)
     {
@@ -48,7 +48,7 @@ std::string Base64Encoder::finalize()
     return ret;
 }
 
-const uint8_t Base64Decoder::b64v[] = {
+const uint8_t base64_decoder::b64v[] = {
     65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,
     65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,65,
     65,65,65,65,65,65,65,65,65,65,65,62,65,65,65,63,
@@ -59,7 +59,7 @@ const uint8_t Base64Decoder::b64v[] = {
     41,42,43,44,45,46,47,48,49,50,51,65,65,65,65,65
 };
 
-Base64Decoder::Base64Decoder(std::string &&b) :
+base64_decoder::base64_decoder(std::string &&b) :
     s(b),
     invalid(false),
     rem(0),
@@ -83,12 +83,12 @@ Base64Decoder::Base64Decoder(std::string &&b) :
     }
 }
 
-size_t Base64Decoder::decoded_length()
+size_t base64_decoder::decoded_length()
 {
     return dlen;
 }
 
-size_t Base64Decoder::decode_data(const void *data, size_t len)
+size_t base64_decoder::decode_data(const void *data, size_t len)
 {
     uint8_t *rp = (uint8_t*)data;
     for (; bp < s.size(); ++bp)

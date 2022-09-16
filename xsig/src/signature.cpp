@@ -245,7 +245,7 @@ bool signature::operator==(const signature &o) const
 std::string signature::to_string() const
 {
     if (!p || !p->compressed) return std::string();
-    Base64Encoder enc;
+    base64_encoder enc;
     size_t sz = p->ct.size();
     enc.encode_data(&p->cfg, sizeof(signature_config));
     enc.encode_data(&sz, sizeof(size_t));
@@ -256,7 +256,7 @@ std::string signature::to_string() const
 signature signature::from_string(std::string &&s)
 {
     signature_priv *p = new signature_priv;
-    Base64Decoder dec(std::move(s));
+    base64_decoder dec(std::move(s));
     size_t sz;
     p->compressed = true;
     size_t s1 = dec.decode_data(&p->cfg, sizeof(signature_config));

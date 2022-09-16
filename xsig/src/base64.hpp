@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string>
 
-class Base64Encoder
+class base64_encoder
 {
 private:
     static const char *b64c;
@@ -11,12 +11,12 @@ private:
     uint8_t rem;
     std::string ret;
 public:
-    Base64Encoder();
+    base64_encoder();
     void encode_data(const void *data, size_t len);
     std::string finalize();
 };
 
-class Base64Decoder
+class base64_decoder
 {
 private:
     static const uint8_t b64v[];
@@ -27,7 +27,7 @@ private:
     size_t bp;
     std::string s;
 public:
-    Base64Decoder(std::string &&b);
+    base64_decoder(std::string &&b);
     size_t decoded_length();
     size_t decode_data(const void *data, size_t len);
 };
