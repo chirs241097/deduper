@@ -270,6 +270,7 @@ signature signature::from_string(std::string &&s)
 
 signature signature::from_preprocessed_matrix(cv::Mat *m, const signature_config &cfg)
 {
+    if (!m->data) return signature();
     signature_priv *p = new signature_priv;
     p->cfg = cfg;
 
@@ -290,6 +291,7 @@ signature signature::from_preprocessed_matrix(cv::Mat *m, const signature_config
 
 signature signature::from_cvmatrix(cv::Mat *m, const signature_config &cfg)
 {
+    if (!m->data) return signature();
     cv::Mat ma, bw;
     double sc = 1;
     switch (m->depth())
