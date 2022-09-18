@@ -229,6 +229,7 @@ int main(int argc,char** argv)
     puts("grouping similar images...");
     sdb->group_similar();
 
+    sdb->batch_get_signature_begin();
     std::vector<dupe_t> dupes = sdb->dupe_pairs();
     for (auto &p : dupes)
     {
@@ -258,6 +259,7 @@ int main(int argc,char** argv)
 #endif
         }
     }
+    sdb->batch_get_signature_end();
 
     sdb->to_db_file("test.sigdb");
     delete sdb;

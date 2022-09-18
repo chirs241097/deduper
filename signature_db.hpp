@@ -52,8 +52,10 @@ public:
     //if specificted, id must be unique
     //treat automatically assigned id as arbitrary opaque integers
     size_t put_signature(const fs::path &path, const signature &sig, size_t id = ~size_t(0));
+    void batch_get_signature_begin();
     //get image signature from database
     std::pair<fs::path, signature> get_signature(size_t id);
+    void batch_get_signature_end();
 
     //place batch_put_subslice_begin() and batch_put_subslice_end() around a group of
     //put_subslice() calls to improve performance

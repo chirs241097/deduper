@@ -14,6 +14,7 @@ const int SIGDB_VERSION = 3;
 enum batch_status
 {
     none = 0,
+    getsig,
     putsub,
     findsub,
     setpar,
@@ -169,11 +170,20 @@ size_t signature_db::put_signature(const fs::path &path, const signature &sig,si
     return static_cast<size_t>(sqlite3_last_insert_rowid(p->db));
 }
 
+void signature_db::batch_get_signature_begin()
+{
+    if (!p->db) [[ unlikely ]] return;
+    sqlite3_prepare_v2(p->db, "select path, signature from images where id = ?;", -1, &p->bst[batch_status::getsig], 0);
+}
+
 std::pair<fs::path, signature> signature_db::get_signature(size_t id)
 {
     if (!p->db) [[ unlikely ]] return std::make_pair(fs::path(), signature());
-    sqlite3_stmt *st;
-    sqlite3_prepare_v2(p->db, "select path, signature from images where id = ?;", -1, &st, 0);
+    sqlite3_stmt *st = nullptr;
+    if (p->bst[batch_status::getsig])
+        st = p->bst[batch_status::getsig];
+    else
+        sqlite3_prepare_v2(p->db, "select path, signature from images where id = ?;", -1, &st, 0);
     sqlite3_bind_int(st, 1, id);
     int rr = sqlite3_step(st);
     if (rr == SQLITE_ROW)
@@ -184,14 +194,24 @@ std::pair<fs::path, signature> signature_db::get_signature(size_t id)
         fs::path path((char*)sqlite3_column_text(st, 0));
 #endif
         std::string sigs((char*)sqlite3_column_text(st, 1));
-        sqlite3_finalize(st);
+        if (p->bst[batch_status::getsig])
+            sqlite3_reset(st);
+        else
+            sqlite3_finalize(st);
         return std::make_pair(path, signature::from_string(std::move(sigs)));
     }
     else
     {
-        sqlite3_finalize(st);
+        if (p->bst[batch_status::getsig])
+            sqlite3_reset(st);
+        else
+            sqlite3_finalize(st);
         return std::make_pair(fs::path(), signature());
     }
+}
+void signature_db::batch_get_signature_end()
+{
+    p->batch_end(batch_status::getsig);
 }
 
 void signature_db::batch_put_subslice_begin()
