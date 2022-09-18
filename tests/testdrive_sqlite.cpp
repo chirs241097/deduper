@@ -39,8 +39,8 @@ double threshold = 0.3;
 std::vector<fs::path> paths;
 std::vector<fs::path> files;
 
-int nsliceh = 3;
-int nslicev = 3;
+size_t nsliceh = 3;
+size_t nslicev = 3;
 
 signature_config cfg_full =
 {
@@ -204,53 +204,6 @@ void build_file_list(fs::path path, bool recursive, std::vector<fs::path> &out)
     }
 }
 
-void job_func(int thid, size_t id)
-{
-    subsliced_signature ss = subsliced_signature::from_path(files[id], nsliceh, nslicev, cfg_full, cfg_subslice);
-
-    printf("%d %lu\r", thid, id);
-    fflush(stdout);
-
-    sdb->lock();
-    std::set<size_t> v;
-    size_t dbid = sdb->put_signature(files[id], ss.full);
-
-    sdb->batch_find_subslice_begin();
-    for (size_t i = 0; i < nsliceh * nslicev; ++i)
-    {
-        std::vector<subslice_t> ssmatches = sdb->find_subslice(ss.subslices[i]);
-        for (auto &match : ssmatches)
-        {
-            if (match.slice == i && v.find(match.id) == v.end())
-            {
-                signature othersig;
-                std::tie(std::ignore, othersig) = sdb->get_signature(match.id);
-                double dist = ss.full.distance(othersig);
-                if (dist < threshold)
-                    sdb->put_dupe_pair(dbid, match.id, dist);
-            }
-        }
-    }
-    sdb->batch_end();
-
-    sdb->batch_put_subslice_begin();
-    for (size_t i = 0; i < nsliceh * nslicev; ++i)
-        sdb->put_subslice(dbid, i, ss.subslices[i]);
-    sdb->batch_end();
-
-    sdb->unlock();
-}
-
-void run()
-{
-    thread_pool tp(njobs);
-    for(size_t i = 0; i < files.size(); ++i)
-    {
-        tp.create_task(job_func, i);
-    }
-    tp.wait();
-}
-
 int main(int argc,char** argv)
 {
     if (int pr = parse_arguments(argc, argv)) return pr - 1;
@@ -262,15 +215,27 @@ int main(int argc,char** argv)
     sdb = new signature_db();
     puts("computing signature vectors...");
 
-    run();
+    populate_cfg_t pcfg = {
+        nsliceh,
+        nslicev,
+        cfg_full,
+        cfg_subslice,
+        threshold,
+        [](size_t c, int){printf("%lu\r", c); fflush(stdout);},
+        njobs
+    };
+    sdb->populate(files, pcfg);
 
     std::vector<dupe_t> dupes = sdb->dupe_pairs();
     for (auto &p : dupes)
     {
+        fs::path p1, p2;
+        std::tie(p1, std::ignore) = sdb->get_signature(p.id1);
+        std::tie(p2, std::ignore) = sdb->get_signature(p.id2);
 #if PATH_VALSIZE == 2
-        wprintf(L"%ls %ls %f\n", files[p.id1].c_str(), files[p.id2].c_str(), p.distance);
+        wprintf(L"%ls %ls %f\n", p1.c_str(), p2.c_str(), p.distance);
 #else
-        printf("%s %s %f\n", files[p.id1].c_str(), files[p.id2].c_str(), p.distance);
+        printf("%s %s %f\n", p1.c_str(), p2.c_str(), p.distance);
 #endif
     }
     sdb->to_db_file("test.sigdb");
