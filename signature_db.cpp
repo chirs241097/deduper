@@ -491,9 +491,42 @@ void signature_db::ds_merge(size_t id1, size_t id2)
 
 void signature_db::group_similar()
 {
+    ds_init();
+    batch_ds_get_parent_begin();
+    batch_ds_set_parent_begin();
+    auto pairs = this->dupe_pairs();
+    for (auto &p : pairs)
+        ds_merge(p.id1, p.id2);
+    batch_ds_get_parent_end();
+    batch_ds_set_parent_end();
 }
 
 std::vector<std::vector<size_t>> signature_db::groups_get()
 {
-    return {};
+    sqlite3_stmt *sto = nullptr;
+    sqlite3_stmt *sti = nullptr;
+    sqlite3_prepare_v2(p->db, "select distinct parent from dspar;", -1, &sto, 0);
+    sqlite3_prepare_v2(p->db, "select id from dspar where parent = ?;", -1, &sti, 0);
+    std::vector<std::vector<size_t>> ret;
+
+    while (1)
+    {
+        int r = sqlite3_step(sto);
+        if (r != SQLITE_ROW) break;
+        size_t dpar = (size_t)sqlite3_column_int(sto, 0);
+        sqlite3_bind_int(sti, 1, dpar);
+        std::vector<size_t> v;
+        while (1)
+        {
+            int ri = sqlite3_step(sti);
+            if (ri != SQLITE_ROW) break;
+            size_t id = (size_t)sqlite3_column_int(sti, 0);
+            v.push_back(id);
+        }
+        ret.push_back(v);
+        sqlite3_reset(sti);
+    }
+    sqlite3_finalize(sto);
+    sqlite3_finalize(sti);
+    return ret;
 }

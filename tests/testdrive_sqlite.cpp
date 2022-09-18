@@ -226,6 +226,9 @@ int main(int argc,char** argv)
     };
     sdb->populate(files, pcfg);
 
+    puts("grouping similar images...");
+    sdb->group_similar();
+
     std::vector<dupe_t> dupes = sdb->dupe_pairs();
     for (auto &p : dupes)
     {
@@ -238,6 +241,24 @@ int main(int argc,char** argv)
         printf("%s %s %f\n", p1.c_str(), p2.c_str(), p.distance);
 #endif
     }
+
+    std::vector<std::vector<size_t>> gp = sdb->groups_get();
+    for (auto gi = gp.begin(); gi != gp.end(); ++gi)
+    {
+        if (gi->size() < 2) continue;
+        printf("group #%lu:\n", gi - gp.begin());
+        for (auto &id : *gi)
+        {
+            fs::path p;
+            std::tie(p, std::ignore) = sdb->get_signature(id);
+#if PATH_VALSIZE == 2
+            wprintf(L"\t%ls\n", p.c_str());
+#else
+            printf("\t%s\n", p.c_str());
+#endif
+        }
+    }
+
     sdb->to_db_file("test.sigdb");
     delete sdb;
     return 0;

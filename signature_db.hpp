@@ -97,7 +97,10 @@ public:
     size_t ds_find(size_t id);
     void ds_merge(size_t id1, size_t id2);
 
+    //group similar images together using results from dupe_pairs()
+    //usually very fast, unless you have a crack ton of duplicates...
     void group_similar();
+    //get all groups, each countained in their own lists.
     std::vector<std::vector<size_t>> groups_get();
 };
 
