@@ -15,18 +15,10 @@ SET(CMAKE_EXTRA_INCLUDE_FILES "filesystem")
 check_type_size("std::filesystem::path::value_type" PATH_VALSIZE LANGUAGE CXX)
 SET(CMAKE_EXTRA_INCLUDE_FILES)
 
+option(BUILD_SHARED_LIBS ON)
+
 add_compile_definitions(PATH_VALSIZE=${PATH_VALSIZE})
 
-include_directories(.)
-
-add_library(xsig STATIC
-    imageutil.cpp
-    signature.cpp
-    subslice_signature.cpp
-    signature_db.cpp
-    base64.cpp
-)
-
-target_compile_options(xsig PRIVATE -Werror=return-type)
+add_subdirectory(xsig)
 
 add_subdirectory(tests)
