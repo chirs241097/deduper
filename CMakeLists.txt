@@ -20,5 +20,5 @@ option(BUILD_SHARED_LIBS ON)
 add_compile_definitions(PATH_VALSIZE=${PATH_VALSIZE})
 
 add_subdirectory(xsig)
-
+add_subdirectory(qdeduper)
 add_subdirectory(tests)

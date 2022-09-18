@@ -21,7 +21,7 @@ class ImageItemDelegate;
 
 namespace fs = std::filesystem;
 
-class MinGuiWidget : public QMainWindow
+class DeduperMainWindow : public QMainWindow
 {
     Q_OBJECT
 private:
@@ -48,7 +48,9 @@ protected:
     void resizeEvent(QResizeEvent *e) override;
     void closeEvent(QCloseEvent *e) override;
 public:
-    MinGuiWidget();
+    DeduperMainWindow();
+
+    void setup_menu();
     void show_images(const std::vector<std::filesystem::path> &fns);
     void update_distances(const std::map<std::pair<std::size_t, std::size_t>, double> &d);
     void update_viewstatus(std::size_t cur, std::size_t size);

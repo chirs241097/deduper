@@ -9,6 +9,8 @@
 #include <QCloseEvent>
 #include <QMouseEvent>
 #include <QScrollBar>
+#include <QMenuBar>
+#include <QMenu>
 #include <QAction>
 #include <QSplitter>
 #include <QString>
@@ -41,18 +43,18 @@ const std::vector<int> keys = {
 
 QString fsstr_to_qstring(const fs::path::string_type &s)
 {
-#ifdef _WIN32 //the degenerate platform
+#if PATH_VALSIZE == 2 //the degenerate platform
     return QString::fromStdWString(s);
 #else
     return QString::fromStdString(s);
 #endif
 }
 
-MinGuiWidget::MinGuiWidget()
+DeduperMainWindow::DeduperMainWindow()
 {
     this->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
-    this->setWindowTitle("deduper minigui");
-    this->setLayout(new QVBoxLayout(this));
+    this->setWindowTitle("deduper");
+    this->setup_menu();
     sb = this->statusBar();
     sb->addPermanentWidget(permamsg = new QLabel());
     QLabel *opm = new QLabel();
@@ -164,7 +166,40 @@ MinGuiWidget::MinGuiWidget()
     nohotkeywarn = false;
 }
 
-void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
+void DeduperMainWindow::setup_menu()
+{
+    QMenu *file = this->menuBar()->addMenu("File");
+    QMenu *view = this->menuBar()->addMenu("View");
+    QMenu *mark = this->menuBar()->addMenu("Marks");
+    QMenu *help = this->menuBar()->addMenu("Help");
+
+    file->addAction("Create Database...");
+    file->addAction("Load Database...");
+    file->addAction("Save Database...");
+    file->addSeparator();
+    file->addAction("Search for Image...");
+    file->addSeparator();
+    file->addAction("Preferences...");
+    file->addAction("Exit");
+
+    view->addAction("Next Group");
+    view->addAction("Previous Group");
+    view->addSeparator();
+    QMenu *sort = view->addMenu("Sort by");
+    sort->addAction("File size");
+    sort->addAction("Image dimension");
+    sort->addAction("File path");
+
+    mark->addAction("Mark All");
+    mark->addAction("Mark None");
+    mark->addAction("Mark All within...");
+    mark->addAction("Review Marked Imagess");
+
+    help->addAction("View Documentation");
+    help->addAction("About");
+}
+
+void DeduperMainWindow::show_images(const std::vector<fs::path> &fns)
 {
     current_set = fns;
     marks.clear();
@@ -191,7 +226,7 @@ void MinGuiWidget::show_images(const std::vector<fs::path> &fns)
     mark_view_update(false);
 }
 
-void MinGuiWidget::update_distances(const std::map<std::pair<size_t, size_t>, double> &d)
+void DeduperMainWindow::update_distances(const std::map<std::pair<size_t, size_t>, double> &d)
 {
     QString r;
     for (auto &p : d)
@@ -207,14 +242,14 @@ void MinGuiWidget::update_distances(const std::map<std::pair<size_t, size_t>, do
     infopanel->setText(r);
 }
 
-void MinGuiWidget::update_viewstatus(std::size_t cur, std::size_t size)
+void DeduperMainWindow::update_viewstatus(std::size_t cur, std::size_t size)
 {
     permamsg->setText(QString("Viewing group %1 of %2").arg(cur + 1).arg(size));
     ngroups = size;
     curgroup = cur;
 }
 
-void MinGuiWidget::save_list()
+void DeduperMainWindow::save_list()
 {
     QString fn = QFileDialog::getSaveFileName(this, "Save list", QString(), "*.txt");
     FILE *f = fopen(fn.toStdString().c_str(), "w");
@@ -228,7 +263,7 @@ void MinGuiWidget::save_list()
     fclose(f);
 }
 
-void MinGuiWidget::load_list()
+void DeduperMainWindow::load_list()
 {
     QString fn = QFileDialog::getOpenFileName(this, "Load list", QString(), "*.txt");
     FILE *f = fopen(fn.toStdString().c_str(), "r");
@@ -256,7 +291,7 @@ void MinGuiWidget::load_list()
     mark_view_update();
 }
 
-void MinGuiWidget::mark_toggle(size_t x)
+void DeduperMainWindow::mark_toggle(size_t x)
 {
     if (x < marks.size())
     {
@@ -270,7 +305,7 @@ void MinGuiWidget::mark_toggle(size_t x)
     mark_view_update();
 }
 
-void MinGuiWidget::mark_all_but(size_t x)
+void DeduperMainWindow::mark_all_but(size_t x)
 {
     if (x < marks.size())
     {
@@ -287,7 +322,7 @@ void MinGuiWidget::mark_all_but(size_t x)
     mark_view_update();
 }
 
-void MinGuiWidget::mark_all()
+void DeduperMainWindow::mark_all()
 {
     for (size_t i = 0; i < marks.size(); ++i)
     {
@@ -297,7 +332,7 @@ void MinGuiWidget::mark_all()
     mark_view_update();
 }
 
-void MinGuiWidget::mark_none()
+void DeduperMainWindow::mark_none()
 {
     for (size_t i = 0; i < marks.size(); ++i)
     {
@@ -308,7 +343,7 @@ void MinGuiWidget::mark_none()
     mark_view_update();
 }
 
-void MinGuiWidget::mark_view_update(bool update_msg)
+void DeduperMainWindow::mark_view_update(bool update_msg)
 {
     size_t m = 0;
     for (size_t i = 0; i < current_set.size(); ++i)
@@ -327,7 +362,7 @@ void MinGuiWidget::mark_view_update(bool update_msg)
     sb->showMessage(QString("%1 of %2 marked for deletion").arg(m).arg(current_set.size()), 1000);
 }
 
-fs::path::string_type MinGuiWidget::common_prefix(const std::vector<fs::path> &fns)
+fs::path::string_type DeduperMainWindow::common_prefix(const std::vector<fs::path> &fns)
 {
     using fsstr = fs::path::string_type;
     fsstr ret;
@@ -349,7 +384,7 @@ fs::path::string_type MinGuiWidget::common_prefix(const std::vector<fs::path> &f
     return ret;
 }
 
-void MinGuiWidget::resizeEvent(QResizeEvent *e)
+void DeduperMainWindow::resizeEvent(QResizeEvent *e)
 {
     QWidget::resizeEvent(e);
     if (!id || !im) return;
@@ -357,7 +392,7 @@ void MinGuiWidget::resizeEvent(QResizeEvent *e)
         id->resize(im->indexFromItem(im->item(i)));
 }
 
-void MinGuiWidget::closeEvent(QCloseEvent *e)
+void DeduperMainWindow::closeEvent(QCloseEvent *e)
 {
     if (QMessageBox::StandardButton::Yes ==
         QMessageBox::question(this, "Confirmation", "Really quit?",
