@@ -37,6 +37,7 @@ SignatureDB::SignatureDB() : QObject(nullptr)
 SignatureDB::SignatureDB(const fs::path &dbpath) : QObject(nullptr)
 {
     sdb = new signature_db(dbpath);
+    create_priv_struct();
 }
 
 SignatureDB::~SignatureDB()
@@ -44,21 +45,9 @@ SignatureDB::~SignatureDB()
     delete sdb;
 }
 
-void SignatureDB::scan_files(const std::vector<fs::path> &files, int njobs)
+void SignatureDB::create_priv_struct()
 {
-    populate_cfg_t pcfg = {
-        3,
-        3,
-        cfg_full,
-        cfg_subslice,
-        0.3,
-        [this](size_t c,int){Q_EMIT image_scanned(c);},
-        njobs
-    };
-    sdb->populate(files, pcfg);
-
-    Q_EMIT image_scanned(~size_t(0));
-    
+    if (!valid()) return;
     auto ids = sdb->get_image_ids();
     sdb->batch_get_signature_begin();
     for (auto &id : ids)
@@ -78,6 +67,29 @@ void SignatureDB::scan_files(const std::vector<fs::path> &files, int njobs)
     auto gps = sdb->groups_get();
     gps.erase(std::remove_if(gps.begin(), gps.end(), [](std::vector<size_t> v){ return v.size() < 2; }), gps.end());
     this->groups = std::move(gps);
+}
+
+bool SignatureDB::valid()
+{
+    return sdb->valid();
+}
+
+void SignatureDB::scan_files(const std::vector<fs::path> &files, int njobs)
+{
+    populate_cfg_t pcfg = {
+        3,
+        3,
+        cfg_full,
+        cfg_subslice,
+        0.3,
+        [this](size_t c,int){Q_EMIT image_scanned(c);},
+        njobs
+    };
+    sdb->populate(files, pcfg);
+
+    Q_EMIT image_scanned(~size_t(0));
+
+    create_priv_struct();
 }
 
 size_t SignatureDB::num_groups()
@@ -119,4 +131,14 @@ size_t SignatureDB::get_path_id(const fs::path& p)
     if (frmap.find(p) == frmap.end())
         return ~size_t(0);
     else return frmap[p];
+}
+
+bool SignatureDB::load(const fs::path &p)
+{
+    return sdb->from_db_file(p);
+}
+
+bool SignatureDB::save(const fs::path &p)
+{
+    return sdb->to_db_file(p);
 }

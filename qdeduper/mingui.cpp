@@ -56,6 +56,15 @@ QString fsstr_to_qstring(const fs::path::string_type &s)
 #endif
 }
 
+fs::path qstring_to_path(const QString &s)
+{
+#if PATH_VALSIZE == 2 //the degenerate platform
+    return fs::path(s.toStdWString());
+#else
+    return fs::path(s.toStdString());
+#endif
+}
+
 Q_DECLARE_METATYPE(fs::path)
 
 DeduperMainWindow::DeduperMainWindow()
@@ -174,8 +183,33 @@ void DeduperMainWindow::setup_menu()
     QAction *create_db = file->addAction("Create Database...");
     QObject::connect(create_db, &QAction::triggered, this, &DeduperMainWindow::create_new);
     menuact["create_db"] = create_db;
-    file->addAction("Load Database...");
-    file->addAction("Save Database...");
+    QAction *load_db = file->addAction("Load Database...");
+    load_db->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_DialogOpenButton));
+    QObject::connect(load_db, &QAction::triggered, [this] {
+        QString dbpath = QFileDialog::getOpenFileName(this, "Load Database", QString(), "Signature database (*.sigdb)");
+        if (!dbpath.isNull())
+        {
+            this->sdb = new SignatureDB(qstring_to_path(dbpath));
+            if (!this->sdb->valid()) {
+                delete this->sdb;
+                this->sdb = nullptr;
+                QMessageBox::critical(this, "Error", "Error loading database.");
+                return;
+            }
+            curgroup = 0;
+            show_group(0);
+        }
+    });
+    menuact["load_db"] = load_db;
+
+    QAction *save_db = file->addAction("Save Database...");
+    save_db->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_DialogSaveButton));
+    QObject::connect(save_db, &QAction::triggered, [this] {
+        QString dbpath = QFileDialog::getSaveFileName(this, "Save Database", QString(), "Signature database (*.sigdb)");
+        if (!dbpath.isNull() && this->sdb)
+            this->sdb->save(qstring_to_path(dbpath));
+    });
+    menuact["save_db"] = save_db;
     file->addSeparator();
     file->addAction("Export Marked Images List...");
     file->addAction("Import Marked Images List...");
@@ -249,11 +283,13 @@ void DeduperMainWindow::update_actions()
         menuact["next_group"]->setEnabled(false);
         menuact["prev_group"]->setEnabled(false);
         menuact["skip_group"]->setEnabled(false);
+        menuact["save_db"]->setEnabled(false);
         return;
     }
     menuact["skip_group"]->setEnabled(true);
     menuact["prev_group"]->setEnabled(curgroup > 0);
     menuact["next_group"]->setEnabled(curgroup + 1 < sdb->num_groups());
+    menuact["save_db"]->setEnabled(true);
 }
 
 void DeduperMainWindow::show_images(const std::vector<fs::path> &fns)

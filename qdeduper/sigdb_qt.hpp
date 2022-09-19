@@ -22,10 +22,14 @@ private:
     std::unordered_map<fs::path, size_t> frmap;
     std::map<std::pair<size_t, size_t>, double> distmap;
     std::vector<std::vector<size_t>> groups;
+
+    void create_priv_struct();
 public:
     SignatureDB();
-    SignatureDB(const fs::path& dbpath);
+    SignatureDB(const fs::path &dbpath);
     ~SignatureDB();
+
+    bool valid();
 
     void scan_files(const std::vector<fs::path> &files, int njobs);
     size_t num_groups();
@@ -33,7 +37,10 @@ public:
     std::map<std::pair<size_t, size_t>, double> group_distances(size_t gid);
 
     fs::path get_image_path(size_t id);
-    size_t get_path_id(const fs::path& p);
+    size_t get_path_id(const fs::path &p);
+
+    bool load(const fs::path &p);
+    bool save(const fs::path &p);
 Q_SIGNALS:
     void image_scanned(size_t n);
 };
