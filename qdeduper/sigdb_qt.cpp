@@ -91,6 +91,11 @@ void SignatureDB::scan_files(const std::vector<fs::path> &files, int njobs)
 
     create_priv_struct();
 }
+void SignatureDB::interrupt_scan()
+{
+    if (sdb)
+        sdb->populate_interrupt();
+}
 
 size_t SignatureDB::num_groups()
 {

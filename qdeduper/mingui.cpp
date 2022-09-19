@@ -6,6 +6,7 @@
 
 #include <cstdio>
 #include <chrono>
+#include <thread>
 #include <cwchar>
 
 #include <QDebug>
@@ -175,10 +176,10 @@ DeduperMainWindow::DeduperMainWindow()
 
 void DeduperMainWindow::setup_menu()
 {
-    QMenu *file = this->menuBar()->addMenu("File");
-    QMenu *view = this->menuBar()->addMenu("View");
-    QMenu *mark = this->menuBar()->addMenu("Marks");
-    QMenu *help = this->menuBar()->addMenu("Help");
+    QMenu *file = this->menuBar()->addMenu("&File");
+    QMenu *view = this->menuBar()->addMenu("&View");
+    QMenu *mark = this->menuBar()->addMenu("&Marks");
+    QMenu *help = this->menuBar()->addMenu("&Help");
 
     QAction *create_db = file->addAction("Create Database...");
     QObject::connect(create_db, &QAction::triggered, this, &DeduperMainWindow::create_new);
@@ -396,6 +397,7 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
     this->pd->setMaximum(0);
     auto f = QtConcurrent::run([this, paths] {
         FileScanner *fs = new FileScanner();
+        this->fsc = fs;
         std::for_each(paths.begin(), paths.end(), [fs](auto p){fs->add_path(p.first, p.second);});
         fs->add_magic_number("\x89PNG\r\n");
         fs->add_magic_number("\xff\xd8\xff");
@@ -413,6 +415,12 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
             }
         }, Qt::ConnectionType::QueuedConnection);
         fs->scan();
+        if (fs->interrupted())
+        {
+            delete fs;
+            this->fsc = nullptr;
+            return;
+        }
         this->pd->setMaximum(fs->file_list().size() - 1);
         this->pd->setLabelText("Scanning...");
         this->sdb = new SignatureDB();
@@ -431,8 +439,9 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
                 this->pd->setLabelText("Finalizing...");
             }
         }, Qt::ConnectionType::QueuedConnection);
-        this->sdb->scan_files(fs->file_list(), 8);
+        this->sdb->scan_files(fs->file_list(), std::thread::hardware_concurrency());
         delete fs;
+        this->fsc = nullptr;
     });
     QFutureWatcher<void> *fw = new QFutureWatcher<void>(this);
     fw->setFuture(f);
@@ -442,6 +451,10 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
         this->curgroup = 0;
         this->show_group(this->curgroup);
     }, Qt::ConnectionType::QueuedConnection);
+    QObject::connect(pd, &QProgressDialog::canceled, [this] {
+        if (this->fsc) this->fsc->interrupt();
+        if (this->sdb) this->sdb->interrupt_scan();
+    });
 }
 
 void DeduperMainWindow::show_group(size_t gid)

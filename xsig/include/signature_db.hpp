@@ -85,6 +85,7 @@ public:
     bool from_db_file(const fs::path &path);
 
     void populate(const std::vector<fs::path> &paths, const populate_cfg_t &cfg);
+    void populate_interrupt();
 
     //disjoint set for keeping similar images in the same group
     //some of these probably shouldn't be public. TBD...

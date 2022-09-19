@@ -28,6 +28,7 @@ struct signature_db_priv
     sqlite3 *db;
     sqlite3_mutex *mtx;
     sqlite3_stmt *bst[batch_status::BATCH_STATUS_MAX];
+    thread_pool *tp;
 
     void init_db();
     bool verify_db();
@@ -124,6 +125,8 @@ signature_db::signature_db(const fs::path &dbpath)
     p->mtx = sqlite3_db_mutex(p->db);
     for (int i = 0; i < batch_status::BATCH_STATUS_MAX; ++i)
         p->bst[i] = nullptr;
+    p->tp = nullptr;
+
     if (!p->verify_db())
     {
         sqlite3_close(p->db);
@@ -429,12 +432,19 @@ void signature_db::populate(const std::vector<fs::path> &paths, const populate_c
         cfg.callback(count.load(), thid);
     };
 
-    thread_pool tp(cfg.njobs);
+    p->tp = new thread_pool(cfg.njobs);
     for(size_t i = 0; i < paths.size(); ++i)
     {
-        tp.create_task(job_func, paths[i]);
+        p->tp->create_task(job_func, paths[i]);
     }
-    tp.wait();
+    p->tp->wait();
+    delete p->tp;
+    p->tp = nullptr;
+}
+void signature_db::populate_interrupt()
+{
+    if (p->tp)
+        p->tp->terminate();
 }
 
 void signature_db::ds_init()

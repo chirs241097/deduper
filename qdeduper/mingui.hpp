@@ -10,6 +10,7 @@
 #include <QMainWindow>
 #include <QList>
 
+#include "filescanner.hpp"
 #include "sigdb_qt.hpp"
 
 class QHBoxLayout;
@@ -22,6 +23,7 @@ class QProgressDialog;
 class QSplitter;
 class QStandardItemModel;
 class QToolBar;
+class FileScanner;
 class ImageItemDelegate;
 
 namespace fs = std::filesystem;
@@ -42,6 +44,7 @@ private:
     ImageItemDelegate *id = nullptr;
     QProgressDialog *pd = nullptr;
     SignatureDB *sdb = nullptr;
+    FileScanner *fsc = nullptr;
 
     std::size_t curgroup;
     bool nohotkeywarn;

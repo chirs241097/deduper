@@ -24,7 +24,7 @@ public:
     bool pop(T&v)
     {
         std::unique_lock<std::mutex> lck(mtx);
-        if(!q.empty())
+        if (!q.empty())
         {
             v = std::move(q.front());
             q.pop();
@@ -49,23 +49,25 @@ public:
     {
         thr.resize(njobs);
         thstop.resize(njobs);
-        for(size_t i = 0; i < njobs; ++i)
+        for (size_t i = 0; i < njobs; ++i)
         {
             auto cstop = thstop[i] = std::make_shared<std::atomic<bool>>(false);
             auto looper = [this, i, cstop]
             {
-                std::atomic<bool>&stop = *cstop;
+                std::atomic<bool> &stop = *cstop;
                 std::function<void(int)> *f;
                 bool popped = wq.pop(f);
-                while(1)
+                while (1)
                 {
-                    for(; popped; popped = wq.pop(f))
+                    for (; popped; popped = wq.pop(f))
                     {
                         std::unique_ptr<std::function<void(int)>> pf(f);
                         (*f)(i);
-                        if(stop)return;
+                        if (stop.load()) return;
                     }
+
                     std::unique_lock<std::mutex> lck(mtx);
+
                     ++waiting_threads;
                     cv.wait(lck, [this, &f, &popped, &stop]
                     {
@@ -73,10 +75,11 @@ public:
                         return popped || wait_interrupt || stop;
                     });
                     --waiting_threads;
-                    if(!popped)return;
+                    if (!popped) return;
                 }
             };
             thr[i].reset(new std::thread(looper));
+            pthread_setname_np(thr[i]->native_handle(), (std::string("thrpool #") + std::to_string(i)).c_str());
         }
     }
     template<typename F, typename...A>
@@ -96,15 +99,20 @@ public:
     }
     void wait()
     {
-        if(!stop)
-            wait_interrupt = true;
+        if (!stop) wait_interrupt = true;
+
         {
             std::unique_lock<std::mutex> lck(mtx);
             cv.notify_all();
         }
-        for(size_t i = 0; i < thr.size(); ++i)if(thr[i]->joinable())thr[i]->join();
+        for (size_t i = 0; i < thr.size(); ++i)
+        {
+            if (thr[i]->joinable())
+                thr[i]->join();
+        }
+
         std::function<void(int)> *f = nullptr;
-        while(wq.size())
+        while (wq.size())
         {
             wq.pop(f);
             delete f;
@@ -116,24 +124,34 @@ public:
     {
         stop = true;
         std::function<void(int)> *f = nullptr;
-        while(wq.size())
+        while (wq.size())
         {
             wq.pop(f);
             delete f;
         }
-        for(size_t i = 0; i < thstop.size(); ++i)*thstop[i] = true;
+        for (size_t i = 0; i < thstop.size(); ++i)
+            *thstop[i] = true;
+
         {
             std::unique_lock<std::mutex> lck(mtx);
             cv.notify_all();
         }
-        for(size_t i = 0; i < thr.size(); ++i)if(thr[i]->joinable())thr[i]->join();
-        while(wq.size())
+        if (!wait_interrupt)
         {
-            wq.pop(f);
-            delete f;
+            for (size_t i = 0; i < thr.size(); ++i)
+            {
+                if (thr[i]->joinable())
+                    thr[i]->join();
+            }
+
+            while (wq.size())
+            {
+                wq.pop(f);
+                delete f;
+            }
+            thr.clear();
+            thstop.clear();
         }
-        thr.clear();
-        thstop.clear();
     }
 private:
     std::vector<std::unique_ptr<std::thread>> thr;
