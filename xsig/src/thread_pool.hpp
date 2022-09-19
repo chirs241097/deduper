@@ -103,7 +103,7 @@ public:
             cv.notify_all();
         }
         for(size_t i = 0; i < thr.size(); ++i)if(thr[i]->joinable())thr[i]->join();
-        std::function<void(int)> *f;
+        std::function<void(int)> *f = nullptr;
         while(wq.size())
         {
             wq.pop(f);
@@ -115,7 +115,7 @@ public:
     void terminate()
     {
         stop = true;
-        std::function<void(int)> *f;
+        std::function<void(int)> *f = nullptr;
         while(wq.size())
         {
             wq.pop(f);
@@ -139,9 +139,9 @@ private:
     std::vector<std::unique_ptr<std::thread>> thr;
     std::vector<std::shared_ptr<std::atomic<bool>>> thstop;
     _atomic_queue<std::function<void(int)>*> wq;
-    std::atomic<bool> wait_interrupt;
-    std::atomic<bool> stop;
     std::atomic<int> waiting_threads;
+    std::atomic<bool> stop;
+    std::atomic<bool> wait_interrupt;
     std::mutex mtx;
     std::condition_variable cv;
 };
