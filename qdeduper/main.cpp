@@ -1,17 +1,6 @@
-#include <cstdio>
-#include <algorithm>
-#include <filesystem>
-#include <map>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <utility>
-
 #include <QWidget>
 #include <QApplication>
 #include "mingui.hpp"
-
-using std::size_t;
 
 DeduperMainWindow *w = nullptr;
 
