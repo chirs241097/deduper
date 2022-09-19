@@ -5,3 +5,4 @@ util_internal/
 mingui/build/
 
 CMakeLists.txt.user
+*.swp

@@ -57,6 +57,8 @@ public:
     std::pair<fs::path, signature> get_signature(size_t id);
     void batch_get_signature_end();
 
+    std::vector<size_t> get_image_ids();
+
     //place batch_put_subslice_begin() and batch_put_subslice_end() around a group of
     //put_subslice() calls to improve performance
     void batch_put_subslice_begin();

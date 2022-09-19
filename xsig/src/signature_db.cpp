@@ -214,6 +214,22 @@ void signature_db::batch_get_signature_end()
     p->batch_end(batch_status::getsig);
 }
 
+std::vector<size_t> signature_db::get_image_ids()
+{
+    sqlite3_stmt *st = nullptr;
+    sqlite3_prepare_v2(p->db, "select id from images;", -1, &st, 0);
+    std::vector<size_t> ret;
+    while (1)
+    {
+        int r = sqlite3_step(st);
+        if (r != SQLITE_ROW) break;
+        size_t id = (size_t)sqlite3_column_int(st, 0);
+        ret.push_back(id);
+    }
+    sqlite3_finalize(st);
+    return ret;
+}
+
 void signature_db::batch_put_subslice_begin()
 {
     if (!p->db) [[ unlikely ]] return;

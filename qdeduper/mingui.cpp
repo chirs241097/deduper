@@ -1,11 +1,18 @@
 #include "mingui.hpp"
 #include "imageitem.hpp"
+#include "filescanner.hpp"
+#include "pathchooser.hpp"
+#include "sigdb_qt.hpp"
 
 #include <cstdio>
+#include <chrono>
 #include <cwchar>
+#include <qnamespace.h>
 #include <type_traits>
 
 #include <QDebug>
+#include <QtConcurrent>
+#include <QFutureWatcher>
 #include <QCloseEvent>
 #include <QMouseEvent>
 #include <QScrollBar>
@@ -16,6 +23,7 @@
 #include <QString>
 #include <QScrollArea>
 #include <QListView>
+#include <QProgressDialog>
 #include <QStandardItemModel>
 #include <QLabel>
 #include <QHBoxLayout>
@@ -83,6 +91,12 @@ DeduperMainWindow::DeduperMainWindow()
     lw->setHorizontalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
     lw->setVerticalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
     lw->setMinimumWidth(240);
+    pd = new QProgressDialog(this);
+    pd->setModal(true);
+    pd->setMinimumDuration(0);
+    pd->setAutoReset(false);
+    pd->setAutoClose(false);
+    pd->close();
 
     for (size_t i = 0; i < keys.size(); ++i)
     {
@@ -105,29 +119,10 @@ DeduperMainWindow::DeduperMainWindow()
     mnone->setShortcut(QKeySequence(Qt::Key::Key_C));
     QObject::connect(mnone, &QAction::triggered, [this]{this->mark_none();});
     this->addAction(mnone);
-    QAction *nxt = new QAction();
-    nxt->setShortcut(QKeySequence(Qt::Key::Key_M));
-    QObject::connect(nxt, &QAction::triggered, [this]{Q_EMIT this->next();});
-    this->addAction(nxt);
-    QAction *prv = new QAction();
-    prv->setShortcut(QKeySequence(Qt::Key::Key_Z));
-    QObject::connect(prv, &QAction::triggered, [this]{Q_EMIT this->prev();});
-    this->addAction(prv);
     QAction *load = new QAction();
     load->setShortcut(QKeySequence(Qt::Key::Key_N));
     QObject::connect(load, &QAction::triggered, [this]{Q_EMIT this->load_list();});
     this->addAction(load);
-    QAction *skip = new QAction();
-    skip->setShortcut(QKeySequence(Qt::Key::Key_B));
-    QObject::connect(skip, &QAction::triggered, [this]{
-        bool ok = false;
-        int g = QInputDialog::getInt(this, "Skip to group",
-                                     QString("Group # (1-%1)").arg(ngroups),
-                                     curgroup + 1,
-                                     1, ngroups, 1, &ok);
-        if (ok) Q_EMIT switch_group((size_t) g - 1);
-    });
-    this->addAction(skip);
     QAction *save = new QAction();
     save->setShortcut(QKeySequence(Qt::Modifier::SHIFT | Qt::Key::Key_Return));
     QObject::connect(save, &QAction::triggered, [this]{Q_EMIT this->save_list();});
@@ -173,7 +168,9 @@ void DeduperMainWindow::setup_menu()
     QMenu *mark = this->menuBar()->addMenu("Marks");
     QMenu *help = this->menuBar()->addMenu("Help");
 
-    file->addAction("Create Database...");
+    QAction *create_db = file->addAction("Create Database...");
+    QObject::connect(create_db, &QAction::triggered, this, &DeduperMainWindow::create_new);
+    menuact["create_db"] = create_db;
     file->addAction("Load Database...");
     file->addAction("Save Database...");
     file->addSeparator();
@@ -182,8 +179,38 @@ void DeduperMainWindow::setup_menu()
     file->addAction("Preferences...");
     file->addAction("Exit");
 
-    view->addAction("Next Group");
-    view->addAction("Previous Group");
+    QAction *nxtgrp = view->addAction("Next Group");
+    menuact["next_group"] = nxtgrp;
+    nxtgrp->setShortcut(QKeySequence(Qt::Key::Key_M));
+    QObject::connect(nxtgrp, &QAction::triggered, [this] {
+        if (this->sdb && curgroup + 1 < this->sdb->num_groups())
+            this->show_group(++curgroup);
+    });
+    this->addAction(nxtgrp);
+
+    QAction *prvgrp = view->addAction("Previous Group");
+    menuact["prev_group"] = prvgrp;
+    prvgrp->setShortcut(QKeySequence(Qt::Key::Key_Z));
+    QObject::connect(prvgrp, &QAction::triggered, [this] {
+        if (this->sdb && curgroup > 1)
+            this->show_group(--curgroup);
+    });
+    this->addAction(prvgrp);
+
+    QAction *skip = view->addAction("Skip to Group...");
+    menuact["skip_group"] = skip;
+    skip->setShortcut(QKeySequence(Qt::Key::Key_B));
+    QObject::connect(skip, &QAction::triggered, [this] {
+        if (!this->sdb) return;
+        bool ok = false;
+        int g = QInputDialog::getInt(this, "Skip to group",
+                                     QString("Group # (1-%1)").arg(sdb->num_groups()),
+                                     curgroup + 1,
+                                     1, sdb->num_groups(), 1, &ok);
+        if (ok) this->show_group((size_t) g - 1);
+    });
+    this->addAction(skip);
+
     view->addSeparator();
     QMenu *sort = view->addMenu("Sort by");
     sort->addAction("File size");
@@ -198,16 +225,21 @@ void DeduperMainWindow::setup_menu()
     help->addAction("View Documentation");
     help->addAction("About");
 }
+void DeduperMainWindow::update_actions()
+{
+    if (!sdb)
+    {
+        menuact["next_group"]->setEnabled(false);
+        menuact["prev_group"]->setEnabled(false);
+        return;
+    }
+}
 
 void DeduperMainWindow::show_images(const std::vector<fs::path> &fns)
 {
     current_set = fns;
     marks.clear();
     im->clear();
-    int max_height = (this->screen()->size().height() / fns.size() * 0.8 - 24) * this->screen()->devicePixelRatio();
-    int max_width = this->screen()->size().width() * 0.8 * this->screen()->devicePixelRatio();
-    if (max_height < 64) max_height = 64;
-    if (max_width < 64) max_width = 64;
     fs::path::string_type common_pfx = common_prefix(fns);
     size_t idx = 0;
     if (fns.size() > keys.size() && !nohotkeywarn)
@@ -245,7 +277,6 @@ void DeduperMainWindow::update_distances(const std::map<std::pair<size_t, size_t
 void DeduperMainWindow::update_viewstatus(std::size_t cur, std::size_t size)
 {
     permamsg->setText(QString("Viewing group %1 of %2").arg(cur + 1).arg(size));
-    ngroups = size;
     curgroup = cur;
 }
 
@@ -289,6 +320,83 @@ void DeduperMainWindow::load_list()
     for (size_t i = 0; i < marks.size(); ++i)
         marks[i] = marked.find(current_set[i]) != marked.end();
     mark_view_update();
+}
+
+void DeduperMainWindow::create_new()
+{
+    PathChooser *pc = new PathChooser(this);
+    pc->setModal(true);
+    if (pc->exec() == QDialog::DialogCode::Accepted)
+        this->scan_dirs(pc->get_dirs());
+    pc->deleteLater();
+}
+
+void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
+{
+    this->pd->open();
+    this->pd->setLabelText("Preparing for database creation...");
+    this->pd->setMinimum(0);
+    this->pd->setMaximum(0);
+    auto f = QtConcurrent::run([this, paths] {
+        FileScanner *fs = new FileScanner();
+        std::for_each(paths.begin(), paths.end(), [fs](auto p){fs->add_path(p.first, p.second);});
+        fs->add_magic_number("\x89PNG\r\n");
+        fs->add_magic_number("\xff\xd8\xff");
+        QObject::connect(fs, &FileScanner::scan_done_prep, [this](auto n) {
+            this->pd->setMaximum(n - 1);
+        });
+        QObject::connect(fs, &FileScanner::file_scanned, [this](const fs::path &p, size_t c) {
+            static auto lt = std::chrono::steady_clock::now();
+            using namespace std::literals;
+            if (std::chrono::steady_clock::now() - lt > 100ms)
+            {
+                lt = std::chrono::steady_clock::now();
+                this->pd->setLabelText(QString("Looking for files to scan: %1").arg(fsstr_to_qstring(p)));
+                this->pd->setValue(c);
+            }
+        });
+        fs->scan();
+        this->pd->setMaximum(fs->file_list().size() - 1);
+        this->pd->setLabelText("Scanning...");
+        this->sdb = new SignatureDB();
+        QObject::connect(this->sdb, &SignatureDB::image_scanned, this, [this](size_t n) {
+            static auto lt = std::chrono::steady_clock::now();
+            using namespace std::literals;
+            if (std::chrono::steady_clock::now() - lt > 100ms)
+            {
+                lt = std::chrono::steady_clock::now();
+                this->pd->setLabelText(QString("Scanning %1 / %2").arg(n + 1).arg(this->pd->maximum() + 1));
+                this->pd->setValue(n);
+            }
+            if (!~n)
+            {
+                this->pd->setMaximum(0);
+                this->pd->setLabelText("Finalizing...");
+            }
+        }, Qt::ConnectionType::QueuedConnection);
+        this->sdb->scan_files(fs->file_list(), 8);
+        delete fs;
+    });
+    QFutureWatcher<void> *fw = new QFutureWatcher<void>(this);
+    fw->setFuture(f);
+    QObject::connect(fw, &QFutureWatcher<void>::finished, this, [this] {
+        this->pd->reset();
+        this->pd->close();
+        this->curgroup = 0;
+        this->show_group(this->curgroup);
+    }, Qt::ConnectionType::QueuedConnection);
+}
+
+void DeduperMainWindow::show_group(size_t gid)
+{
+    if (!sdb || gid >= sdb->num_groups())
+        return;
+    auto g = sdb->get_group(gid);
+    current_set.clear();
+    std::for_each(g.begin(), g.end(), [this](auto id){current_set.push_back(sdb->get_image_path(id));});
+    this->show_images(current_set);
+    this->update_distances(sdb->group_distances(gid));
+    this->update_viewstatus(gid, sdb->num_groups());
 }
 
 void DeduperMainWindow::mark_toggle(size_t x)
