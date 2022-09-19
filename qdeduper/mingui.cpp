@@ -64,6 +64,7 @@ DeduperMainWindow::DeduperMainWindow()
     this->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
     this->setWindowTitle("deduper");
     this->setup_menu();
+    this->update_actions();
     sb = this->statusBar();
     sb->addPermanentWidget(permamsg = new QLabel());
     QLabel *opm = new QLabel();
@@ -195,7 +196,7 @@ void DeduperMainWindow::setup_menu()
     menuact["prev_group"] = prvgrp;
     prvgrp->setShortcut(QKeySequence(Qt::Key::Key_Z));
     QObject::connect(prvgrp, &QAction::triggered, [this] {
-        if (this->sdb && curgroup > 1)
+        if (this->sdb && curgroup > 0)
             this->show_group(--curgroup);
     });
     this->addAction(prvgrp);
@@ -240,8 +241,12 @@ void DeduperMainWindow::update_actions()
     {
         menuact["next_group"]->setEnabled(false);
         menuact["prev_group"]->setEnabled(false);
+        menuact["skip_group"]->setEnabled(false);
         return;
     }
+    menuact["skip_group"]->setEnabled(true);
+    menuact["prev_group"]->setEnabled(curgroup > 0);
+    menuact["next_group"]->setEnabled(curgroup + 1 < sdb->num_groups());
 }
 
 void DeduperMainWindow::show_images(const std::vector<fs::path> &fns)
@@ -406,6 +411,7 @@ void DeduperMainWindow::show_group(size_t gid)
     this->show_images(current_set);
     this->update_distances(sdb->group_distances(gid));
     this->update_viewstatus(gid, sdb->num_groups());
+    this->update_actions();
 }
 
 void DeduperMainWindow::mark_toggle(size_t x)
