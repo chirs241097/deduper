@@ -202,6 +202,7 @@ void DeduperMainWindow::setup_menu()
     this->addAction(prvgrp);
 
     QAction *skip = view->addAction("Skip to Group...");
+    skip->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowUp));
     menuact["skip_group"] = skip;
     skip->setShortcut(QKeySequence(Qt::Key::Key_B));
     QObject::connect(skip, &QAction::triggered, [this] {
@@ -233,6 +234,7 @@ void DeduperMainWindow::setup_menu()
     this->addToolBar(tb);
     tb->addAction(prvgrp);
     tb->addAction(nxtgrp);
+    tb->addAction(skip);
     tb->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextBesideIcon);
 }
 void DeduperMainWindow::update_actions()
