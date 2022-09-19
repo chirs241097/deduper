@@ -56,8 +56,11 @@ QString fsstr_to_qstring(const fs::path::string_type &s)
 #endif
 }
 
+Q_DECLARE_METATYPE(fs::path)
+
 DeduperMainWindow::DeduperMainWindow()
 {
+    qRegisterMetaType<fs::path>();
     this->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
     this->setWindowTitle("deduper");
     this->setup_menu();
