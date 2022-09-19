@@ -348,10 +348,10 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
         std::for_each(paths.begin(), paths.end(), [fs](auto p){fs->add_path(p.first, p.second);});
         fs->add_magic_number("\x89PNG\r\n");
         fs->add_magic_number("\xff\xd8\xff");
-        QObject::connect(fs, &FileScanner::scan_done_prep, [this](auto n) {
+        QObject::connect(fs, &FileScanner::scan_done_prep, this, [this](auto n) {
             this->pd->setMaximum(n - 1);
-        });
-        QObject::connect(fs, &FileScanner::file_scanned, [this](const fs::path &p, size_t c) {
+        }, Qt::ConnectionType::QueuedConnection);
+        QObject::connect(fs, &FileScanner::file_scanned, this, [this](const fs::path &p, size_t c) {
             static auto lt = std::chrono::steady_clock::now();
             using namespace std::literals;
             if (std::chrono::steady_clock::now() - lt > 100ms)
@@ -360,7 +360,7 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
                 this->pd->setLabelText(QString("Looking for files to scan: %1").arg(fsstr_to_qstring(p)));
                 this->pd->setValue(c);
             }
-        });
+        }, Qt::ConnectionType::QueuedConnection);
         fs->scan();
         this->pd->setMaximum(fs->file_list().size() - 1);
         this->pd->setLabelText("Scanning...");
