@@ -102,7 +102,7 @@ std::map<std::pair<size_t, size_t>, double> SignatureDB::group_distances(size_t 
             if (distmap.find(std::make_pair(x, y)) != distmap.end())
                 ret[std::make_pair(i, j)] = distmap[std::make_pair(x, y)];
             else if (distmap.find(std::make_pair(y, x)) != distmap.end())
-                ret[std::make_pair(j, i)] = distmap[std::make_pair(x, y)];
+                ret[std::make_pair(i, j)] = distmap[std::make_pair(y, x)];
         }
     return ret;
 }
