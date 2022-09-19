@@ -21,6 +21,7 @@ class QListView;
 class QProgressDialog;
 class QSplitter;
 class QStandardItemModel;
+class QToolBar;
 class ImageItemDelegate;
 
 namespace fs = std::filesystem;
@@ -33,7 +34,8 @@ private:
     QTextEdit *infopanel;
     QLabel *permamsg;
     QStatusBar *sb;
-    QListView *lw;
+    QListView *lv;
+    QToolBar *tb;
     std::map<std::string, QAction*> menuact;
     QList<QAction*> selhk;
     QStandardItemModel *im = nullptr;

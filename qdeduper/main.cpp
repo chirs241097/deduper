@@ -12,13 +12,13 @@
 #include "mingui.hpp"
 
 using std::size_t;
-namespace fs = std::filesystem;
 
 DeduperMainWindow *w = nullptr;
 
 int main(int argc, char **argv)
 {
     QApplication a(argc, argv);
+    a.setAttribute(Qt::ApplicationAttribute::AA_UseHighDpiPixmaps);
 
     w = new DeduperMainWindow();
     w->show();

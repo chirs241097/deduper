@@ -7,8 +7,6 @@
 #include <cstdio>
 #include <chrono>
 #include <cwchar>
-#include <qnamespace.h>
-#include <type_traits>
 
 #include <QDebug>
 #include <QtConcurrent>
@@ -16,6 +14,7 @@
 #include <QCloseEvent>
 #include <QMouseEvent>
 #include <QScrollBar>
+#include <QToolBar>
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
@@ -32,7 +31,6 @@
 #include <QPixmap>
 #include <QFile>
 #include <QScreen>
-#include <QFont>
 #include <QFontDatabase>
 #include <QFileDialog>
 #include <QKeySequence>
@@ -75,22 +73,22 @@ DeduperMainWindow::DeduperMainWindow()
     infopanel = new QTextEdit(this);
     infopanel->setReadOnly(true);
     infopanel->setMinimumWidth(80);
-    lw = new QListView(this);
+    lv = new QListView(this);
     im = new QStandardItemModel(this);
-    lw->setModel(im);
-    lw->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
-    lw->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
+    lv->setModel(im);
+    lv->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
+    lv->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
     id = new ImageItemDelegate();
-    id->setScrollbarMargins(lw->verticalScrollBar()->width(),
-                            lw->horizontalScrollBar()->height());
-    lw->setItemDelegate(id);
-    lw->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
-    lw->setResizeMode(QListView::ResizeMode::Adjust);
-    lw->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
-    lw->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
-    lw->setHorizontalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
-    lw->setVerticalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
-    lw->setMinimumWidth(240);
+    id->setScrollbarMargins(lv->verticalScrollBar()->width(),
+                            lv->horizontalScrollBar()->height());
+    lv->setItemDelegate(id);
+    lv->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
+    lv->setResizeMode(QListView::ResizeMode::Adjust);
+    lv->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
+    lv->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
+    lv->setHorizontalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
+    lv->setVerticalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
+    lv->setMinimumWidth(240);
     pd = new QProgressDialog(this);
     pd->setModal(true);
     pd->setMinimumDuration(0);
@@ -128,14 +126,14 @@ DeduperMainWindow::DeduperMainWindow()
     QObject::connect(save, &QAction::triggered, [this]{Q_EMIT this->save_list();});
     this->addAction(save);
 
-    QObject::connect(lw, &QListView::clicked, [this](const QModelIndex &i) {
+    QObject::connect(lv, &QListView::clicked, [this](const QModelIndex &i) {
         auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
         if (cs == Qt::CheckState::Checked)
             cs = Qt::CheckState::Unchecked;
         else cs = Qt::CheckState::Checked;
         this->im->setData(i, cs, Qt::ItemDataRole::CheckStateRole);
     });
-    QObject::connect(lw, &QListView::doubleClicked, [this](const QModelIndex &i) {
+    QObject::connect(lv, &QListView::doubleClicked, [this](const QModelIndex &i) {
         auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
         if (cs == Qt::CheckState::Checked)
             cs = Qt::CheckState::Unchecked;
@@ -150,7 +148,7 @@ DeduperMainWindow::DeduperMainWindow()
         if (checked != marks[idx.row()])
             this->mark_toggle(idx.row());
     });
-    l->addWidget(lw);
+    l->addWidget(lv);
     l->addWidget(infopanel);
     l->setStretchFactor(0, 3);
     l->setStretchFactor(1, 1);
@@ -180,6 +178,7 @@ void DeduperMainWindow::setup_menu()
     file->addAction("Exit");
 
     QAction *nxtgrp = view->addAction("Next Group");
+    nxtgrp->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowRight));
     menuact["next_group"] = nxtgrp;
     nxtgrp->setShortcut(QKeySequence(Qt::Key::Key_M));
     QObject::connect(nxtgrp, &QAction::triggered, [this] {
@@ -189,6 +188,7 @@ void DeduperMainWindow::setup_menu()
     this->addAction(nxtgrp);
 
     QAction *prvgrp = view->addAction("Previous Group");
+    prvgrp->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowLeft));
     menuact["prev_group"] = prvgrp;
     prvgrp->setShortcut(QKeySequence(Qt::Key::Key_Z));
     QObject::connect(prvgrp, &QAction::triggered, [this] {
@@ -224,6 +224,12 @@ void DeduperMainWindow::setup_menu()
 
     help->addAction("View Documentation");
     help->addAction("About");
+
+    tb = new QToolBar(this);
+    this->addToolBar(tb);
+    tb->addAction(prvgrp);
+    tb->addAction(nxtgrp);
+    tb->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextBesideIcon);
 }
 void DeduperMainWindow::update_actions()
 {
@@ -252,7 +258,7 @@ void DeduperMainWindow::show_images(const std::vector<fs::path> &fns)
     for (auto &f : fns)
     {
         marks.push_back(marked.find(f) != marked.end());
-        im->appendRow(new ImageItem(fsstr_to_qstring(f.native()), fsstr_to_qstring(f.native().substr(common_pfx.length())), keys[idx], lw->devicePixelRatioF()));
+        im->appendRow(new ImageItem(fsstr_to_qstring(f.native()), fsstr_to_qstring(f.native().substr(common_pfx.length())), keys[idx], lv->devicePixelRatioF()));
         ++idx;
     }
     mark_view_update(false);
