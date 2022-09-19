@@ -9,6 +9,9 @@
 #include <QFontMetrics>
 #include <QPainter>
 #include <QLocale>
+#include <qnamespace.h>
+
+#define DEBUGPAINT 0
 
 ImageItem::ImageItem(QString fn, QString dispn, QKeySequence hotkey, double pxratio)
 {
@@ -39,7 +42,6 @@ void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opt
         so.state |= QStyle::StateFlag::State_Selected;
     so.state |= QStyle::StateFlag::State_Active;
     option.widget->style()->drawPrimitive(QStyle::PrimitiveElement::PE_PanelItemViewItem, &so, painter, option.widget);
-
 
     QPixmap pm = index.data(Qt::ItemDataRole::DecorationRole).value<QPixmap>();
     QSize imd = pm.size().scaled(imr.size(), Qt::AspectRatioMode::KeepAspectRatio);
@@ -88,6 +90,12 @@ void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opt
     r.setRight(imr.right());
     QString efns = option.fontMetrics.elidedText(fns, Qt::TextElideMode::ElideMiddle, r.width());
     painter->drawText(r, efns, topt);
+#if DEBUGPAINT
+    painter->setPen(QPen(Qt::GlobalColor::red));
+    painter->drawRect(so.rect);
+    painter->drawRect(option.rect);
+    qDebug() << "paint" << index.row() << option.rect;
+#endif
 }
 
 QSize ImageItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
@@ -121,6 +129,9 @@ QSize ImageItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QMod
     ret.setHeight(vpsz.height() / index.model()->rowCount() - lw->spacing());
     ret.setHeight(std::max(min_height + extra_height, ret.height()));
     ret.setHeight(std::min(max_height + extra_height, ret.height()));
+#if DEBUGPAINT
+    qDebug() << "sizehint" << index.row() << ret;
+#endif
     return ret;
 }
 

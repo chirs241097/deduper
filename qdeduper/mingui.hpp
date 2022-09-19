@@ -55,8 +55,8 @@ private:
     std::unordered_set<fs::path> marked;
     std::vector<fs::path> current_set;
 protected:
-    void resizeEvent(QResizeEvent *e) override;
     void closeEvent(QCloseEvent *e) override;
+    bool eventFilter(QObject *obj, QEvent *ev) override;
 public:
     DeduperMainWindow();
 

@@ -93,6 +93,7 @@ DeduperMainWindow::DeduperMainWindow()
     lv->setHorizontalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
     lv->setVerticalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
     lv->setMinimumWidth(240);
+    lv->installEventFilter(this);
     pd = new QProgressDialog(this);
     pd->setModal(true);
     pd->setMinimumDuration(0);
@@ -176,6 +177,9 @@ void DeduperMainWindow::setup_menu()
     file->addAction("Load Database...");
     file->addAction("Save Database...");
     file->addSeparator();
+    file->addAction("Export Marked Images List...");
+    file->addAction("Import Marked Images List...");
+    file->addSeparator();
     file->addAction("Search for Image...");
     file->addSeparator();
     file->addAction("Preferences...");
@@ -225,9 +229,10 @@ void DeduperMainWindow::setup_menu()
     mark->addAction("Mark All");
     mark->addAction("Mark None");
     mark->addAction("Mark All within...");
-    mark->addAction("Review Marked Imagess");
+    mark->addSeparator();
+    mark->addAction("Review Marked Images");
 
-    help->addAction("View Documentation");
+    help->addAction("Help");
     help->addAction("About");
 
     tb = new QToolBar(this);
@@ -509,14 +514,6 @@ fs::path::string_type DeduperMainWindow::common_prefix(const std::vector<fs::pat
     return ret;
 }
 
-void DeduperMainWindow::resizeEvent(QResizeEvent *e)
-{
-    QWidget::resizeEvent(e);
-    if (!id || !im) return;
-    for (int i = 0; i < im->rowCount(); ++i)
-        id->resize(im->indexFromItem(im->item(i)));
-}
-
 void DeduperMainWindow::closeEvent(QCloseEvent *e)
 {
     if (QMessageBox::StandardButton::Yes ==
@@ -526,4 +523,18 @@ void DeduperMainWindow::closeEvent(QCloseEvent *e)
         e->accept();
     else
         e->ignore();
+}
+
+bool DeduperMainWindow::eventFilter(QObject *obj, QEvent *e)
+{
+    if (e->type() == QEvent::Type::Resize)
+    {
+        if (im && id && obj == lv)
+            for (int i = 0; i < im->rowCount(); ++i)
+            {
+                id->resize(im->indexFromItem(im->item(i)));
+            }
+        return false;
+    }
+    return false;
 }
