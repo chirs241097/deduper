@@ -109,6 +109,16 @@ DeduperMainWindow::DeduperMainWindow()
     pd->setMinimumDuration(0);
     pd->setAutoReset(false);
     pd->setAutoClose(false);
+    pd->setWindowTitle("Progress");
+    pd->setFont(this->font());
+    QLabel *pdlb = new QLabel(pd);
+    pdlb->setMaximumWidth(500);
+    pdlb->setAlignment(Qt::AlignmentFlag::AlignLeft | Qt::AlignmentFlag::AlignVCenter);
+    pd->setLabel(pdlb);
+    pd->setMinimumWidth(520);
+    pd->setMaximumWidth(520);
+    pd->setMaximumHeight(120);
+    pd->setMinimumHeight(120);
     pd->close();
 
     for (size_t i = 0; i < keys.size(); ++i)
@@ -410,7 +420,10 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
             if (std::chrono::steady_clock::now() - lt > 100ms)
             {
                 lt = std::chrono::steady_clock::now();
-                this->pd->setLabelText(QString("Looking for files to scan: %1").arg(fsstr_to_qstring(p)));
+                QString etxt = this->fontMetrics().elidedText(QString("Looking for files to scan: %1").arg(fsstr_to_qstring(p)),
+                                                              Qt::TextElideMode::ElideMiddle,
+                                                              475);
+                this->pd->setLabelText(etxt);
                 this->pd->setValue(c);
             }
         }, Qt::ConnectionType::QueuedConnection);
