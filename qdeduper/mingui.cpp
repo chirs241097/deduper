@@ -4,8 +4,8 @@
 #include "pathchooser.hpp"
 #include "sigdb_qt.hpp"
 
-#include <cstdio>
 #include <chrono>
+#include <fstream>
 #include <thread>
 #include <cwchar>
 
@@ -134,22 +134,6 @@ DeduperMainWindow::DeduperMainWindow()
         selhk.push_back(a);
     }
     this->addActions(selhk);
-    QAction *mall = new QAction();
-    mall->setShortcut(QKeySequence(Qt::Key::Key_X));
-    QObject::connect(mall, &QAction::triggered, [this]{this->mark_all();});
-    this->addAction(mall);
-    QAction *mnone = new QAction();
-    mnone->setShortcut(QKeySequence(Qt::Key::Key_C));
-    QObject::connect(mnone, &QAction::triggered, [this]{this->mark_none();});
-    this->addAction(mnone);
-    QAction *load = new QAction();
-    load->setShortcut(QKeySequence(Qt::Key::Key_N));
-    QObject::connect(load, &QAction::triggered, [this]{Q_EMIT this->load_list();});
-    this->addAction(load);
-    QAction *save = new QAction();
-    save->setShortcut(QKeySequence(Qt::Modifier::SHIFT | Qt::Key::Key_Return));
-    QObject::connect(save, &QAction::triggered, [this]{Q_EMIT this->save_list();});
-    this->addAction(save);
 
     QObject::connect(lv, &QListView::clicked, [this](const QModelIndex &i) {
         auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
@@ -222,8 +206,19 @@ void DeduperMainWindow::setup_menu()
     });
     menuact["save_db"] = save_db;
     file->addSeparator();
-    file->addAction("Export Marked Images List...");
-    file->addAction("Import Marked Images List...");
+
+    QAction *savelist = file->addAction("Export Marked Images List...");
+    savelist->setShortcut(QKeySequence(Qt::Modifier::SHIFT | Qt::Key::Key_Return));
+    QObject::connect(savelist, &QAction::triggered, [this]{Q_EMIT this->save_list();});
+    menuact["save_list"] = savelist;
+    this->addAction(savelist);
+
+    QAction *loadlist = file->addAction("Import Marked Images List...");
+    loadlist->setShortcut(QKeySequence(Qt::Key::Key_N));
+    QObject::connect(loadlist, &QAction::triggered, [this]{Q_EMIT this->load_list();});
+    menuact["load_list"] = loadlist;
+    this->addAction(loadlist);
+
     file->addSeparator();
     file->addAction("Search for Image...");
     file->addSeparator();
@@ -271,8 +266,18 @@ void DeduperMainWindow::setup_menu()
     sort->addAction("Image dimension");
     sort->addAction("File path");
 
-    mark->addAction("Mark All");
-    mark->addAction("Mark None");
+    QAction *mall = mark->addAction("Mark All");
+    mall->setShortcut(QKeySequence(Qt::Key::Key_X));
+    QObject::connect(mall, &QAction::triggered, [this]{this->mark_all();});
+    menuact["mark_all"] = mall;
+    this->addAction(mall);
+
+    QAction *mnone = mark->addAction("Mark None");
+    mnone->setShortcut(QKeySequence(Qt::Key::Key_C));
+    QObject::connect(mnone, &QAction::triggered, [this]{this->mark_none();});
+    menuact["mark_none"] = mnone;
+    this->addAction(mnone);
+
     mark->addAction("Mark All within...");
     mark->addSeparator();
     mark->addAction("Review Marked Images");
@@ -295,12 +300,16 @@ void DeduperMainWindow::update_actions()
         menuact["prev_group"]->setEnabled(false);
         menuact["skip_group"]->setEnabled(false);
         menuact["save_db"]->setEnabled(false);
+        menuact["load_list"]->setEnabled(false);
+        menuact["save_list"]->setEnabled(false);
         return;
     }
     menuact["skip_group"]->setEnabled(true);
     menuact["prev_group"]->setEnabled(curgroup > 0);
     menuact["next_group"]->setEnabled(curgroup + 1 < sdb->num_groups());
     menuact["save_db"]->setEnabled(true);
+    menuact["load_list"]->setEnabled(true);
+    menuact["save_list"]->setEnabled(true);
 }
 
 void DeduperMainWindow::show_images(const std::vector<fs::path> &fns)
@@ -350,41 +359,36 @@ void DeduperMainWindow::update_viewstatus(std::size_t cur, std::size_t size)
 
 void DeduperMainWindow::save_list()
 {
-    QString fn = QFileDialog::getSaveFileName(this, "Save list", QString(), "*.txt");
-    FILE *f = fopen(fn.toStdString().c_str(), "w");
-    if (!f) return;
-    for (auto &x : this->marked)
-#ifdef _WIN32
-        fwprintf(f, L"%ls\n", x.c_str());
+    QString fn = QFileDialog::getSaveFileName(this, "Save list", QString(), "File List (*.txt)");
+#if PATH_VALSIZE == 2
+    std::wfstream fst(qstring_to_path(fn), std::ios_base::out);
 #else
-        fprintf(f, "%s\n", x.c_str());
+    std::fstream fst(qstring_to_path(fn), std::ios_base::out);
 #endif
-    fclose(f);
+    if (fst.fail()) return;
+    for (auto &x : this->marked)
+        fst << x.native() << std::endl;
+    fst.close();
 }
 
 void DeduperMainWindow::load_list()
 {
-    QString fn = QFileDialog::getOpenFileName(this, "Load list", QString(), "*.txt");
-    FILE *f = fopen(fn.toStdString().c_str(), "r");
-    if (!f) return;
-    this->marked.clear();
-    while(!feof(f))
-    {
-#ifdef _WIN32
-        wchar_t buf[32768];
-        fgetws(buf, 32768, f);
-        std::wstring ws(buf);
-        if (ws.back() == L'\n') ws.pop_back();
-        if (!ws.empty()) this->marked.insert(ws);
+    QString fn = QFileDialog::getOpenFileName(this, "Load list", QString(), "File List (*.txt)");
+#if PATH_VALSIZE == 2
+    std::wfstream fst(qstring_to_path(fn), std::ios_base::in);
 #else
-        char buf[32768];
-        fgets(buf, 32768, f);
-        std::string s(buf);
-        if (s.back() == '\n') s.pop_back();
-        if (!s.empty()) this->marked.insert(s);
+    std::fstream fst(qstring_to_path(fn), std::ios_base::in);
 #endif
+    if (fst.fail()) return;
+    this->marked.clear();
+    while(!fst.eof())
+    {
+        fs::path::string_type s;
+        std::getline(fst, s);
+        if (s.back() == fst.widen('\n')) s.pop_back();
+        if (!s.empty()) this->marked.insert(s);
     }
-    fclose(f);
+    fst.close();
     for (size_t i = 0; i < marks.size(); ++i)
         marks[i] = marked.find(current_set[i]) != marked.end();
     mark_view_update();
