@@ -283,7 +283,11 @@ void DeduperMainWindow::setup_menu()
     mark->addAction("Review Marked Images");
 
     help->addAction("Help");
-    help->addAction("About");
+    help->addSeparator();
+    QAction *about = help->addAction("About");
+    QObject::connect(about, &QAction::triggered, [this]{QMessageBox::about(this, "About Deduper", "Deduper\nFind similar images on your local filesystem.\n\n0.0.0\nChris Xiong 2022\nMPL-2.0");});
+    QAction *aboutqt = help->addAction("About Qt");
+    QObject::connect(aboutqt, &QAction::triggered, [this]{QMessageBox::aboutQt(this);});
 
     tb = new QToolBar(this);
     this->addToolBar(tb);
