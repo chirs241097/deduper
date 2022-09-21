@@ -442,8 +442,8 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
             this->fsc = nullptr;
             return;
         }
-        this->pd->setMaximum(fs->file_list().size() - 1);
-        this->pd->setLabelText("Scanning...");
+        int flsize = fs->file_list().size() - 1;
+        QMetaObject::invokeMethod(this->pd, [flsize, this] {this->pd->setMaximum(flsize);}, Qt::ConnectionType::QueuedConnection);
         this->sdb = new SignatureDB();
         QObject::connect(this->sdb, &SignatureDB::image_scanned, this, [this](size_t n) {
             static auto lt = std::chrono::steady_clock::now();
