@@ -87,6 +87,8 @@ public:
     void populate(const std::vector<fs::path> &paths, const populate_cfg_t &cfg);
     void populate_interrupt();
 
+    std::vector<std::pair<size_t, double>> search_image(const fs::path &path, const populate_cfg_t &cfg, bool insert = false);
+
     //disjoint set for keeping similar images in the same group
     //some of these probably shouldn't be public. TBD...
     void ds_init();

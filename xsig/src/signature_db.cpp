@@ -398,36 +398,7 @@ void signature_db::populate(const std::vector<fs::path> &paths, const populate_c
     std::atomic<size_t> count(0);
     auto job_func = [&, this](int thid, const fs::path& path)
     {
-        subsliced_signature ss = subsliced_signature::from_path(path, cfg.nsliceh, cfg.nslicev, cfg.scfg_full, cfg.scfg_subslice);
-
-        this->lock();
-        std::set<size_t> v;
-        size_t dbid = this->put_signature(path, ss.full);
-
-        this->batch_find_subslice_begin();
-        for (size_t i = 0; i < cfg.nsliceh * cfg.nslicev; ++i)
-        {
-            std::vector<subslice_t> ssmatches = this->find_subslice(ss.subslices[i]);
-            for (auto &match : ssmatches)
-            {
-                if (match.slice == i && v.find(match.id) == v.end())
-                {
-                    signature othersig;
-                    std::tie(std::ignore, othersig) = this->get_signature(match.id);
-                    double dist = ss.full.distance(othersig);
-                    if (dist < cfg.threshold)
-                        this->put_dupe_pair(dbid, match.id, dist);
-                }
-            }
-        }
-        this->batch_find_subslice_end();
-
-        this->batch_put_subslice_begin();
-        for (size_t i = 0; i < cfg.nsliceh * cfg.nslicev; ++i)
-            this->put_subslice(dbid, i, ss.subslices[i]);
-        this->batch_put_subslice_end();
-
-        this->unlock();
+        this->search_image(path, cfg, true);
         ++count;
         cfg.callback(count.load(), thid);
     };
@@ -441,10 +412,58 @@ void signature_db::populate(const std::vector<fs::path> &paths, const populate_c
     delete p->tp;
     p->tp = nullptr;
 }
+
 void signature_db::populate_interrupt()
 {
     if (p->tp)
         p->tp->terminate();
+}
+
+std::vector<std::pair<size_t, double>> signature_db::search_image(const fs::path &path, const populate_cfg_t &cfg, bool insert)
+{
+    subsliced_signature ss = subsliced_signature::from_path(path, cfg.nsliceh, cfg.nslicev, cfg.scfg_full, cfg.scfg_subslice);
+    if (!ss.full.valid()) return {};
+
+    this->lock();
+    std::set<size_t> v;
+    std::vector<std::pair<size_t, double>> ret;
+    size_t dbid = 0;
+    if (insert) dbid = this->put_signature(path, ss.full);
+
+    this->batch_find_subslice_begin();
+    for (size_t i = 0; i < cfg.nsliceh * cfg.nslicev; ++i)
+    {
+        std::vector<subslice_t> ssmatches = this->find_subslice(ss.subslices[i]);
+        for (auto &match : ssmatches)
+        {
+            if (match.slice == i && v.find(match.id) == v.end())
+            {
+                signature othersig;
+                std::tie(std::ignore, othersig) = this->get_signature(match.id);
+                double dist = ss.full.distance(othersig);
+                if (dist < cfg.threshold)
+                {
+                    if (insert)
+                        this->put_dupe_pair(dbid, match.id, dist);
+                    else
+                        ret.emplace_back(match.id, dist);
+                    v.insert(match.id);
+                }
+            }
+        }
+    }
+    this->batch_find_subslice_end();
+
+    if (insert)
+    {
+        this->batch_put_subslice_begin();
+        for (size_t i = 0; i < cfg.nsliceh * cfg.nslicev; ++i)
+            this->put_subslice(dbid, i, ss.subslices[i]);
+        this->batch_put_subslice_end();
+    }
+
+    this->unlock();
+    return ret;
 }
 
 void signature_db::ds_init()

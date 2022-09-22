@@ -33,6 +33,9 @@ public:
 
     void scan_files(const std::vector<fs::path> &files, int njobs);
     void interrupt_scan();
+
+    std::vector<std::pair<size_t, double>> search_file(const fs::path &files);
+
     size_t num_groups();
     std::vector<size_t> get_group(size_t gid);
     std::map<std::pair<size_t, size_t>, double> group_distances(size_t gid);

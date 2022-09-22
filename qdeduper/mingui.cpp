@@ -126,11 +126,11 @@ DeduperMainWindow::DeduperMainWindow()
         auto &k = keys[i];
         QAction *a = new QAction();
         a->setShortcut(QKeySequence(k));
-        QObject::connect(a, &QAction::triggered, [this, i](){this->mark_toggle(i);});
+        QObject::connect(a, &QAction::triggered, std::bind(&DeduperMainWindow::mark_toggle, this, i));
         selhk.push_back(a);
         QAction *sa = new QAction();
         sa->setShortcut(QKeySequence(Qt::Modifier::SHIFT | k));
-        QObject::connect(sa, &QAction::triggered, [this, i](){this->mark_all_but(i);});
+        QObject::connect(sa, &QAction::triggered, std::bind(&DeduperMainWindow::mark_all_but, this, i));
         selhk.push_back(a);
     }
     this->addActions(selhk);
@@ -220,7 +220,31 @@ void DeduperMainWindow::setup_menu()
     this->addAction(loadlist);
 
     file->addSeparator();
-    file->addAction("Search for Image...");
+    QAction *search_img = file->addAction("Search for Image...");
+    QObject::connect(search_img, &QAction::triggered, [this]{
+        QString fpath = QFileDialog::getOpenFileName(this, "Select Image", QString(), "Image file");
+        if (fpath.isNull()) return;
+        auto sim = this->sdb->search_file(qstring_to_path(fpath));
+        if (sim.empty())
+        {
+            this->sb->showMessage("No similar image found.", 2000);
+            return;
+        }
+        this->vm = ViewMode::view_searchresult;
+        std::vector<fs::path> ps;
+        std::map<std::pair<size_t, size_t>, double> dm;
+        for (size_t i = 0; i < sim.size(); ++i)
+        {
+            auto &s = sim[i];
+            ps.push_back(this->sdb->get_image_path(s.first));
+            dm[std::make_pair(0, i)] = s.second;
+        }
+        this->show_images(ps);
+        this->update_distances(dm);
+        this->sb->showMessage("Use next group / previous group to go back.");
+        this->permamsg->setText("Viewing image search result");
+    });
+    menuact["search_image"] = search_img;
     file->addSeparator();
     file->addAction("Preferences...");
     file->addAction("Exit");
@@ -230,6 +254,7 @@ void DeduperMainWindow::setup_menu()
     menuact["next_group"] = nxtgrp;
     nxtgrp->setShortcut(QKeySequence(Qt::Key::Key_M));
     QObject::connect(nxtgrp, &QAction::triggered, [this] {
+        if (this->vm == ViewMode::view_searchresult) { this->show_group(curgroup); return; }
         if (this->sdb && curgroup + 1 < this->sdb->num_groups())
             this->show_group(++curgroup);
     });
@@ -240,6 +265,7 @@ void DeduperMainWindow::setup_menu()
     menuact["prev_group"] = prvgrp;
     prvgrp->setShortcut(QKeySequence(Qt::Key::Key_Z));
     QObject::connect(prvgrp, &QAction::triggered, [this] {
+        if (this->vm == ViewMode::view_searchresult) { this->show_group(curgroup); return; }
         if (this->sdb && curgroup > 0)
             this->show_group(--curgroup);
     });
@@ -306,14 +332,21 @@ void DeduperMainWindow::update_actions()
         menuact["save_db"]->setEnabled(false);
         menuact["load_list"]->setEnabled(false);
         menuact["save_list"]->setEnabled(false);
+        menuact["search_image"]->setEnabled(false);
         return;
     }
     menuact["skip_group"]->setEnabled(true);
     menuact["prev_group"]->setEnabled(curgroup > 0);
     menuact["next_group"]->setEnabled(curgroup + 1 < sdb->num_groups());
+    menuact["search_image"]->setEnabled(true);
     menuact["save_db"]->setEnabled(true);
     menuact["load_list"]->setEnabled(true);
     menuact["save_list"]->setEnabled(true);
+    if (vm == ViewMode::view_searchresult)
+    {
+        menuact["next_group"]->setEnabled(true);
+        menuact["prev_group"]->setEnabled(true);
+    }
 }
 
 void DeduperMainWindow::show_images(const std::vector<fs::path> &fns)
@@ -350,7 +383,10 @@ void DeduperMainWindow::update_distances(const std::map<std::pair<size_t, size_t
             ka = QKeySequence(keys[p.first.first]).toString();
         if (p.first.second < keys.size())
             kb = QKeySequence(keys[p.first.second]).toString();
-        r += QString("%1 <-> %2: %3\n").arg(ka).arg(kb).arg(QString::number(p.second));
+        if (vm == ViewMode::view_normal)
+            r += QString("%1 <-> %2: %3\n").arg(ka).arg(kb).arg(QString::number(p.second));
+        else
+            r += QString("%1 : %2\n").arg(kb).arg(QString::number(p.second));;
     }
     infopanel->setText(r);
 }
@@ -444,6 +480,7 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
         }
         int flsize = fs->file_list().size() - 1;
         QMetaObject::invokeMethod(this->pd, [flsize, this] {this->pd->setMaximum(flsize);}, Qt::ConnectionType::QueuedConnection);
+        if (this->sdb) delete this->sdb;
         this->sdb = new SignatureDB();
         QObject::connect(this->sdb, &SignatureDB::image_scanned, this, [this](size_t n) {
             static auto lt = std::chrono::steady_clock::now();
@@ -470,6 +507,7 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
         this->pd->reset();
         this->pd->close();
         this->curgroup = 0;
+        this->vm = ViewMode::view_normal;
         this->show_group(this->curgroup);
     }, Qt::ConnectionType::QueuedConnection);
     QObject::connect(pd, &QProgressDialog::canceled, [this] {
@@ -482,6 +520,7 @@ void DeduperMainWindow::show_group(size_t gid)
 {
     if (!sdb || gid >= sdb->num_groups())
         return;
+    this->vm = ViewMode::view_normal;
     auto g = sdb->get_group(gid);
     current_set.clear();
     std::for_each(g.begin(), g.end(), [this](auto id){current_set.push_back(sdb->get_image_path(id));});
@@ -493,6 +532,12 @@ void DeduperMainWindow::show_group(size_t gid)
 
 void DeduperMainWindow::mark_toggle(size_t x)
 {
+    if (vm == ViewMode::view_searchresult)
+    {
+        mark_none(false);
+        sb->showMessage("Marking images in search result is disabled.", 2000);
+        return;
+    }
     if (x < marks.size())
     {
         marks[x] = !marks[x];
@@ -507,6 +552,12 @@ void DeduperMainWindow::mark_toggle(size_t x)
 
 void DeduperMainWindow::mark_all_but(size_t x)
 {
+    if (vm == ViewMode::view_searchresult)
+    {
+        mark_none(false);
+        sb->showMessage("Marking images in search result is disabled.", 2000);
+        return;
+    }
     if (x < marks.size())
     {
         for (size_t i = 0; i < marks.size(); ++i)
@@ -524,6 +575,12 @@ void DeduperMainWindow::mark_all_but(size_t x)
 
 void DeduperMainWindow::mark_all()
 {
+    if (vm == ViewMode::view_searchresult)
+    {
+        mark_none(false);
+        sb->showMessage("Marking images in search result is disabled.", 2000);
+        return;
+    }
     for (size_t i = 0; i < marks.size(); ++i)
     {
         marks[i] = true;
@@ -532,7 +589,7 @@ void DeduperMainWindow::mark_all()
     mark_view_update();
 }
 
-void DeduperMainWindow::mark_none()
+void DeduperMainWindow::mark_none(bool msg)
 {
     for (size_t i = 0; i < marks.size(); ++i)
     {
@@ -540,7 +597,7 @@ void DeduperMainWindow::mark_none()
         if (marked.find(current_set[i]) != marked.end())
             marked.erase(marked.find(current_set[i]));
     }
-    mark_view_update();
+    mark_view_update(msg);
 }
 
 void DeduperMainWindow::mark_view_update(bool update_msg)

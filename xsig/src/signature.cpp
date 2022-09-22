@@ -226,19 +226,19 @@ signature signature::clone() const
 
 double signature::length() const
 {
-    if (!p) {fprintf(stderr, "length: null signature"); return -1;}
+    if (!p) {fprintf(stderr, "length: null signature\n"); return -1;}
     return p->length();
 }
 
 double signature::distance(const signature &o) const
 {
-    if (!p || !o.p) {fprintf(stderr, "distance: null signature"); return -1;}
+    if (!p || !o.p) {fprintf(stderr, "distance: null signature\n"); return -1;}
     return p->distance(*o.p);
 }
 
 bool signature::operator==(const signature &o) const
 {
-    if (!p || !o.p) {fprintf(stderr, "eq: null signature"); return false;}
+    if (!p || !o.p) {fprintf(stderr, "eq: null signature\n"); return false;}
     return *p == *o.p;
 }
 

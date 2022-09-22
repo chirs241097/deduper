@@ -28,6 +28,12 @@ class ImageItemDelegate;
 
 namespace fs = std::filesystem;
 
+enum ViewMode
+{
+    view_normal,
+    view_searchresult
+};
+
 class DeduperMainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -46,12 +52,13 @@ private:
     SignatureDB *sdb = nullptr;
     FileScanner *fsc = nullptr;
 
-    std::size_t curgroup;
+    size_t curgroup;
+    ViewMode vm;
     bool nohotkeywarn;
-    void mark_toggle(std::size_t x);
-    void mark_all_but(std::size_t x);
+    void mark_toggle(size_t x);
+    void mark_all_but(size_t x);
     void mark_all();
-    void mark_none();
+    void mark_none(bool msg = true);
     void mark_view_update(bool update_msg = true);
     fs::path::string_type common_prefix(const std::vector<fs::path> &fns);
     std::vector<bool> marks;
@@ -65,8 +72,8 @@ public:
 
     void setup_menu();
     void show_images(const std::vector<fs::path> &fns);
-    void update_distances(const std::map<std::pair<std::size_t, std::size_t>, double> &d);
-    void update_viewstatus(std::size_t cur, std::size_t size);
+    void update_distances(const std::map<std::pair<size_t, size_t>, double> &d);
+    void update_viewstatus(size_t cur, size_t size);
     void save_list();
     void load_list();
 
@@ -78,7 +85,7 @@ public Q_SLOTS:
 Q_SIGNALS:
     void next();
     void prev();
-    void switch_group(std::size_t group);
+    void switch_group(size_t group);
 };
 
 #endif

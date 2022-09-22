@@ -9,7 +9,6 @@
 #include <QFontMetrics>
 #include <QPainter>
 #include <QLocale>
-#include <qnamespace.h>
 
 #define DEBUGPAINT 0
 

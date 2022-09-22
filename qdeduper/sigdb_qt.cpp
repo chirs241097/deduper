@@ -97,6 +97,22 @@ void SignatureDB::interrupt_scan()
         sdb->populate_interrupt();
 }
 
+std::vector<std::pair<size_t, double>> SignatureDB::search_file(const fs::path &files)
+{
+    populate_cfg_t pcfg = {
+        3,
+        3,
+        cfg_full,
+        cfg_subslice,
+        0.3,
+        nullptr,
+        0
+    };
+    if(sdb)
+        return sdb->search_image(files, pcfg, false);
+    return {};
+}
+
 size_t SignatureDB::num_groups()
 {
     return groups.size();
