@@ -3,6 +3,7 @@
 
 #include <QStandardItem>
 #include <QAbstractItemDelegate>
+#include <QAbstractItemModel>
 #include <QStyleOptionViewItem>
 #include <QModelIndex>
 
@@ -30,11 +31,18 @@ private:
     const static int HKSHDS = 2;
     int vw = -1;
     int hh = -1;
+    bool singlemode = false;
+    QAbstractItemModel *im = nullptr;
 public:
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const;
-    void resize(const QModelIndex &index);
+    void resize();
     void setScrollbarMargins(int vw, int hh);
+
+    void set_single_item_mode(bool enabled);
+    bool is_single_item_mode();
+
+    void set_model(QAbstractItemModel *m);
 Q_SIGNALS:
     void sizeHintChanged(const QModelIndex &index);
 };

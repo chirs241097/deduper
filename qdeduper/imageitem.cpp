@@ -128,19 +128,39 @@ QSize ImageItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QMod
     ret.setHeight(vpsz.height() / index.model()->rowCount() - lw->spacing());
     ret.setHeight(std::max(min_height + extra_height, ret.height()));
     ret.setHeight(std::min(max_height + extra_height, ret.height()));
+    if (singlemode) ret.setHeight(vpsz.height());
 #if DEBUGPAINT
     qDebug() << "sizehint" << index.row() << ret;
 #endif
     return ret;
 }
 
-void ImageItemDelegate::resize(const QModelIndex &index)
+void ImageItemDelegate::resize()
 {
-    Q_EMIT sizeHintChanged(index);
+    if (im)
+        for (int i = 0; i < im->rowCount(); ++i)
+            Q_EMIT sizeHintChanged(im->index(i, 0));
 }
 
 void ImageItemDelegate::setScrollbarMargins(int vw, int hh)
 {
     this->vw = vw;
     this->hh = hh;
+}
+
+void ImageItemDelegate::set_single_item_mode(bool enabled)
+{
+    if (enabled == singlemode) return;
+    singlemode = enabled;
+    resize();
+}
+
+bool ImageItemDelegate::is_single_item_mode()
+{
+    return singlemode;
+}
+
+void ImageItemDelegate::set_model(QAbstractItemModel *m)
+{
+    im = m;
 }

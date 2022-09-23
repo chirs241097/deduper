@@ -16,6 +16,7 @@
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QToolBar>
+#include <QTimer>
 #include <QMenuBar>
 #include <QMenu>
 #include <QAction>
@@ -95,6 +96,7 @@ DeduperMainWindow::DeduperMainWindow()
     id = new ImageItemDelegate();
     id->setScrollbarMargins(lv->verticalScrollBar()->width(),
                             lv->horizontalScrollBar()->height());
+    id->set_model(im);
     lv->setItemDelegate(id);
     lv->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
     lv->setResizeMode(QListView::ResizeMode::Adjust);
@@ -131,7 +133,21 @@ DeduperMainWindow::DeduperMainWindow()
         QAction *sa = new QAction();
         sa->setShortcut(QKeySequence(Qt::Modifier::SHIFT | k));
         QObject::connect(sa, &QAction::triggered, std::bind(&DeduperMainWindow::mark_all_but, this, i));
-        selhk.push_back(a);
+        selhk.push_back(sa);
+        QAction *ca = new QAction();
+        ca->setShortcut(QKeySequence(Qt::Modifier::CTRL | k));
+        QObject::connect(ca, &QAction::triggered, [this, i] {
+            if (i >= im->rowCount()) return;
+            if (id->is_single_item_mode())
+                id->set_single_item_mode(false);
+            else
+            {
+                id->set_single_item_mode(true);
+                QTimer::singleShot(5, [this, i] {
+                lv->scrollTo(im->index(i, 0), QAbstractItemView::ScrollHint::PositionAtTop);});
+            }
+        });
+        selhk.push_back(ca);
     }
     this->addActions(selhk);
 
@@ -656,11 +672,8 @@ bool DeduperMainWindow::eventFilter(QObject *obj, QEvent *e)
 {
     if (e->type() == QEvent::Type::Resize)
     {
-        if (im && id && obj == lv)
-            for (int i = 0; i < im->rowCount(); ++i)
-            {
-                id->resize(im->indexFromItem(im->item(i)));
-            }
+        if (id && obj == lv)
+            id->resize();
         return false;
     }
     return false;
