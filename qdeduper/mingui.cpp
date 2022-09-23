@@ -146,6 +146,7 @@ DeduperMainWindow::DeduperMainWindow()
                 QTimer::singleShot(5, [this, i] {
                 lv->scrollTo(im->index(i, 0), QAbstractItemView::ScrollHint::PositionAtTop);});
             }
+            menuact["single_mode_toggle"]->setChecked(id->is_single_item_mode());
         });
         selhk.push_back(ca);
     }
@@ -301,6 +302,14 @@ void DeduperMainWindow::setup_menu()
         if (ok) this->show_group((size_t) g - 1);
     });
     this->addAction(skip);
+
+    view->addSeparator();
+    QAction *singlemode = view->addAction("Single Item Mode");
+    singlemode->setCheckable(true);
+    menuact["single_mode_toggle"] = singlemode;
+    QObject::connect(singlemode, &QAction::triggered, [this] (bool c) {
+        id->set_single_item_mode(c);
+    });
 
     view->addSeparator();
     QMenu *sort = view->addMenu("Sort by");
