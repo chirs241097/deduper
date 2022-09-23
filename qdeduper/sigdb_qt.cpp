@@ -48,6 +48,10 @@ SignatureDB::~SignatureDB()
 void SignatureDB::create_priv_struct()
 {
     if (!valid()) return;
+    fmap.clear();
+    frmap.clear();
+    distmap.clear();
+    this->groups.clear();
     auto ids = sdb->get_image_ids();
     sdb->batch_get_signature_begin();
     for (auto &id : ids)
@@ -63,7 +67,6 @@ void SignatureDB::create_priv_struct()
     for (auto &dupe : dupes)
         distmap[std::make_pair(dupe.id1, dupe.id2)] = dupe.distance;
 
-    sdb->group_similar();
     auto gps = sdb->groups_get();
     gps.erase(std::remove_if(gps.begin(), gps.end(), [](std::vector<size_t> v){ return v.size() < 2; }), gps.end());
     this->groups = std::move(gps);
@@ -88,6 +91,8 @@ void SignatureDB::scan_files(const std::vector<fs::path> &files, int njobs)
     sdb->populate(files, pcfg);
 
     Q_EMIT image_scanned(~size_t(0));
+
+    sdb->group_similar();
 
     create_priv_struct();
 }
@@ -156,7 +161,9 @@ size_t SignatureDB::get_path_id(const fs::path& p)
 
 bool SignatureDB::load(const fs::path &p)
 {
-    return sdb->from_db_file(p);
+    bool ret = sdb->from_db_file(p);
+    create_priv_struct();
+    return ret;
 }
 
 bool SignatureDB::save(const fs::path &p)

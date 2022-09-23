@@ -15,6 +15,7 @@
 #include <QCloseEvent>
 #include <QMouseEvent>
 #include <QScrollBar>
+#include <QPushButton>
 #include <QToolBar>
 #include <QTimer>
 #include <QMenuBar>
@@ -201,15 +202,31 @@ void DeduperMainWindow::setup_menu()
         QString dbpath = QFileDialog::getOpenFileName(this, "Load Database", QString(), "Signature database (*.sigdb)");
         if (!dbpath.isNull())
         {
-            this->sdb = new SignatureDB(qstring_to_path(dbpath));
-            if (!this->sdb->valid()) {
-                delete this->sdb;
-                this->sdb = nullptr;
-                QMessageBox::critical(this, "Error", "Error loading database.");
-                return;
-            }
-            curgroup = 0;
-            show_group(0);
+            if (this->sdb) delete this->sdb;
+            this->sdb = new SignatureDB();
+            pd->setMaximum(0);
+            pd->setMinimum(0);
+            pd->setLabelText("Loading database...");
+            pd->open();
+            pd->setCancelButton(nullptr);
+            auto f = QtConcurrent::run([this, dbpath]() -> bool {
+                return this->sdb->load(qstring_to_path(dbpath));
+            });
+            QFutureWatcher<bool> *fw = new QFutureWatcher<bool>(this);
+            fw->setFuture(f);
+            QObject::connect(fw, &QFutureWatcher<bool>::finished, this, [this, fw] { 
+                pd->close();
+                if (!fw->result()) {
+                    delete this->sdb;
+                    this->sdb = nullptr;
+                    QMessageBox::critical(this, "Error", "Error loading database.");
+                    fw->deleteLater();
+                    return;
+                }
+                curgroup = 0;
+                show_group(0);
+                fw->deleteLater();
+            }, Qt::ConnectionType::QueuedConnection);
         }
     });
     menuact["load_db"] = load_db;
@@ -474,6 +491,7 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
     this->pd->setLabelText("Preparing for database creation...");
     this->pd->setMinimum(0);
     this->pd->setMaximum(0);
+    this->pd->setCancelButton(new QPushButton("Cancel"));
     auto f = QtConcurrent::run([this, paths] {
         FileScanner *fs = new FileScanner();
         this->fsc = fs;
@@ -528,12 +546,13 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
     });
     QFutureWatcher<void> *fw = new QFutureWatcher<void>(this);
     fw->setFuture(f);
-    QObject::connect(fw, &QFutureWatcher<void>::finished, this, [this] {
+    QObject::connect(fw, &QFutureWatcher<void>::finished, this, [this, fw] {
         this->pd->reset();
         this->pd->close();
         this->curgroup = 0;
         this->vm = ViewMode::view_normal;
         this->show_group(this->curgroup);
+        fw->deleteLater();
     }, Qt::ConnectionType::QueuedConnection);
     QObject::connect(pd, &QProgressDialog::canceled, [this] {
         if (this->fsc) this->fsc->interrupt();
