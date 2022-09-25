@@ -159,6 +159,7 @@ DeduperMainWindow::DeduperMainWindow()
             cs = Qt::CheckState::Unchecked;
         else cs = Qt::CheckState::Checked;
         this->im->setData(i, cs, Qt::ItemDataRole::CheckStateRole);
+        this->marked_update();
     });
     QObject::connect(lv, &QListView::doubleClicked, [this](const QModelIndex &i) {
         auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
@@ -166,14 +167,8 @@ DeduperMainWindow::DeduperMainWindow()
             cs = Qt::CheckState::Unchecked;
         else cs = Qt::CheckState::Checked;
         this->im->setData(i, cs, Qt::ItemDataRole::CheckStateRole);
+        this->marked_update();
         QDesktopServices::openUrl(QUrl::fromLocalFile(i.data(ImageItem::ImageItemRoles::path_role).toString()));
-    });
-    QObject::connect(im, &QStandardItemModel::itemChanged, [this](QStandardItem *i) {
-        ImageItem *itm = static_cast<ImageItem*>(i);
-        QModelIndex idx = itm->index();
-        bool checked = itm->data(Qt::ItemDataRole::CheckStateRole) == Qt::CheckState::Checked;
-        if (checked != marks[idx.row()])
-            this->mark_toggle(idx.row());
     });
     l->addWidget(lv);
     l->addWidget(infopanel);
@@ -265,13 +260,12 @@ void DeduperMainWindow::setup_menu()
             return;
         }
         this->vm = ViewMode::view_searchresult;
-        std::vector<fs::path> ps;
+        std::vector<size_t> ps;
         std::map<std::pair<size_t, size_t>, double> dm;
-        for (size_t i = 0; i < sim.size(); ++i)
+        for (auto &s : sim)
         {
-            auto &s = sim[i];
-            ps.push_back(this->sdb->get_image_path(s.first));
-            dm[std::make_pair(0, i)] = s.second;
+            ps.push_back(s.first);
+            dm[std::make_pair(0, s.first)] = s.second;
         }
         this->show_images(ps);
         this->update_distances(dm);
@@ -391,40 +385,48 @@ void DeduperMainWindow::update_actions()
     }
 }
 
-void DeduperMainWindow::show_images(const std::vector<fs::path> &fns)
+void DeduperMainWindow::show_images(const std::vector<size_t> &ids)
 {
-    current_set = fns;
-    marks.clear();
     im->clear();
+    std::vector<fs::path> fns;
+    for (auto &id : ids) fns.push_back(this->sdb->get_image_path(id));
     fs::path::string_type common_pfx = common_prefix(fns);
     size_t idx = 0;
-    if (fns.size() > keys.size() && !nohotkeywarn)
+    if (ids.size() > keys.size() && !nohotkeywarn)
         nohotkeywarn = QMessageBox::StandardButton::Ignore ==
                        QMessageBox::warning(this,
                              "Too many duplicates",
                              "Too many duplicates found. Some couldn't be assigned a hotkey. Ignore = do not show again.",
                              QMessageBox::StandardButton::Ok | QMessageBox::StandardButton::Ignore,
                              QMessageBox::StandardButton::Ok);
-    for (auto &f : fns)
+    for (auto &id : ids)
     {
-        marks.push_back(marked.find(f) != marked.end());
-        im->appendRow(new ImageItem(fsstr_to_qstring(f.native()), fsstr_to_qstring(f.native().substr(common_pfx.length())), keys[idx], lv->devicePixelRatioF()));
+        fs::path &f = fns[idx];
+        ImageItem *imitm = new ImageItem(fsstr_to_qstring(f.native()),
+                                         fsstr_to_qstring(f.native().substr(common_pfx.length())),
+                                         idx < keys.size() ? keys[idx] : QKeySequence(),
+                                         id, idx,
+                                         lv->devicePixelRatioF());
+        imitm->setCheckState(marked.find(f) == marked.end() ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
+        im->appendRow(imitm);
         ++idx;
     }
-    mark_view_update(false);
+    marked_update(false);
 }
 
 void DeduperMainWindow::update_distances(const std::map<std::pair<size_t, size_t>, double> &d)
 {
     QString r;
+    std::map<size_t, QString> idkeymap;
+    for (int i = 0; i < im->rowCount(); ++i)
+    {
+        ImageItem *itm = static_cast<ImageItem*>(im->item(i));
+        idkeymap[itm->database_id()] = itm->hotkey().isEmpty() ? "(No hotkey)" : itm->hotkey().toString();
+    }
     for (auto &p : d)
     {
-        QString ka = "(No hotkey)";
-        QString kb = "(No hotkey)";
-        if (p.first.first < keys.size())
-            ka = QKeySequence(keys[p.first.first]).toString();
-        if (p.first.second < keys.size())
-            kb = QKeySequence(keys[p.first.second]).toString();
+        QString ka = idkeymap[p.first.first];
+        QString kb = idkeymap[p.first.second];
         if (vm == ViewMode::view_normal)
             r += QString("%1 <-> %2: %3\n").arg(ka).arg(kb).arg(QString::number(p.second));
         else
@@ -471,9 +473,12 @@ void DeduperMainWindow::load_list()
         if (!s.empty()) this->marked.insert(s);
     }
     fst.close();
-    for (size_t i = 0; i < marks.size(); ++i)
-        marks[i] = marked.find(current_set[i]) != marked.end();
-    mark_view_update();
+    for (int i = 0; i < im->rowCount(); ++i)
+    {
+        fs::path p = qstring_to_path(static_cast<ImageItem*>(im->item(i))->path());
+        im->item(i)->setCheckState(marked.find(p) != marked.end() ? Qt::CheckState::Checked : Qt::CheckState::Unchecked);
+    }
+    marked_update();
 }
 
 void DeduperMainWindow::create_new()
@@ -566,9 +571,7 @@ void DeduperMainWindow::show_group(size_t gid)
         return;
     this->vm = ViewMode::view_normal;
     auto g = sdb->get_group(gid);
-    current_set.clear();
-    std::for_each(g.begin(), g.end(), [this](auto id){current_set.push_back(sdb->get_image_path(id));});
-    this->show_images(current_set);
+    this->show_images(g);
     this->update_distances(sdb->group_distances(gid));
     this->update_viewstatus(gid, sdb->num_groups());
     this->update_actions();
@@ -582,16 +585,13 @@ void DeduperMainWindow::mark_toggle(size_t x)
         sb->showMessage("Marking images in search result is disabled.", 2000);
         return;
     }
-    if (x < marks.size())
+    if (x < im->rowCount())
     {
-        marks[x] = !marks[x];
-        if (marks[x])
-            marked.insert(current_set[x]);
-        else
-            if (marked.find(current_set[x]) != marked.end())
-                marked.erase(marked.find(current_set[x]));
+        Qt::CheckState ckst = im->item(x)->checkState() == Qt::CheckState::Checked ?
+                              Qt::CheckState::Unchecked : Qt::CheckState::Checked;
+        im->item(x)->setCheckState(ckst);
     }
-    mark_view_update();
+    marked_update();
 }
 
 void DeduperMainWindow::mark_all_but(size_t x)
@@ -602,19 +602,15 @@ void DeduperMainWindow::mark_all_but(size_t x)
         sb->showMessage("Marking images in search result is disabled.", 2000);
         return;
     }
-    if (x < marks.size())
+    if (x < im->rowCount())
     {
-        for (size_t i = 0; i < marks.size(); ++i)
+        for (int i = 0; i < im->rowCount(); ++i)
         {
-            marks[i] = (i != x);
-            if (marks[i])
-                marked.insert(current_set[i]);
-            else
-                if (marked.find(current_set[i]) != marked.end())
-                    marked.erase(marked.find(current_set[i]));
+            Qt::CheckState ckst = (i == x) ? Qt::CheckState::Unchecked : Qt::CheckState::Checked;
+            im->item(x)->setCheckState(ckst);
         }
     }
-    mark_view_update();
+    marked_update();
 }
 
 void DeduperMainWindow::mark_all()
@@ -625,42 +621,35 @@ void DeduperMainWindow::mark_all()
         sb->showMessage("Marking images in search result is disabled.", 2000);
         return;
     }
-    for (size_t i = 0; i < marks.size(); ++i)
-    {
-        marks[i] = true;
-        marked.insert(current_set[i]);
-    }
-    mark_view_update();
+    for (int i = 0; i < im->rowCount(); ++i)
+        im->item(i)->setCheckState(Qt::CheckState::Checked);
+    marked_update();
 }
 
 void DeduperMainWindow::mark_none(bool msg)
 {
-    for (size_t i = 0; i < marks.size(); ++i)
-    {
-        marks[i] = false;
-        if (marked.find(current_set[i]) != marked.end())
-            marked.erase(marked.find(current_set[i]));
-    }
-    mark_view_update(msg);
+    for (int i = 0; i < im->rowCount(); ++i)
+        im->item(i)->setCheckState(Qt::CheckState::Unchecked);
+    marked_update(msg);
 }
 
-void DeduperMainWindow::mark_view_update(bool update_msg)
+void DeduperMainWindow::marked_update(bool update_msg)
 {
     size_t m = 0;
-    for (size_t i = 0; i < current_set.size(); ++i)
+    for (int i = 0; i < im->rowCount(); ++i)
     {
-        if (marks[i])
+        fs::path p = qstring_to_path(static_cast<ImageItem*>(im->item(i))->path());
+        if (im->item(i)->checkState() == Qt::CheckState::Checked)
         {
-            im->item(i)->setCheckState(Qt::CheckState::Checked);
+            marked.insert(p);
             ++m;
         }
         else
-        {
-            im->item(i)->setCheckState(Qt::CheckState::Unchecked);
-        }
+            if (marked.find(p) != marked.end())
+                marked.erase(marked.find(p));
     }
     if (update_msg)
-    sb->showMessage(QString("%1 of %2 marked for deletion").arg(m).arg(current_set.size()), 1000);
+    sb->showMessage(QString("%1 of %2 marked for deletion").arg(m).arg(im->rowCount()), 1000);
 }
 
 fs::path::string_type DeduperMainWindow::common_prefix(const std::vector<fs::path> &fns)

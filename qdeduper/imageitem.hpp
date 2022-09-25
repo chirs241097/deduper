@@ -15,9 +15,16 @@ public:
         path_role = Qt::ItemDataRole::UserRole + 0x1000,
         dimension_role,
         file_size_role,
-        hotkey_role
+        hotkey_role,
+        database_id_role,
+        default_order_role
     };
-    ImageItem(QString fn, QString dispn, QKeySequence hotkey, double pxratio = 1.0);
+    ImageItem(QString fn, QString dispn, QKeySequence hotkey, size_t dbid, size_t ord, double pxratio = 1.0);
+
+    QString path() const;
+    size_t database_id() const;
+    size_t default_order() const;
+    QKeySequence hotkey() const;
 };
 
 class ImageItemDelegate : public QAbstractItemDelegate

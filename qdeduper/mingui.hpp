@@ -59,11 +59,9 @@ private:
     void mark_all_but(size_t x);
     void mark_all();
     void mark_none(bool msg = true);
-    void mark_view_update(bool update_msg = true);
+    void marked_update(bool update_msg = true);
     fs::path::string_type common_prefix(const std::vector<fs::path> &fns);
-    std::vector<bool> marks;
     std::unordered_set<fs::path> marked;
-    std::vector<fs::path> current_set;
 protected:
     void closeEvent(QCloseEvent *e) override;
     bool eventFilter(QObject *obj, QEvent *ev) override;
@@ -71,7 +69,7 @@ public:
     DeduperMainWindow();
 
     void setup_menu();
-    void show_images(const std::vector<fs::path> &fns);
+    void show_images(const std::vector<size_t> &ids);
     void update_distances(const std::map<std::pair<size_t, size_t>, double> &d);
     void update_viewstatus(size_t cur, size_t size);
     void save_list();
