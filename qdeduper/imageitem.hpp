@@ -17,7 +17,8 @@ public:
         file_size_role,
         hotkey_role,
         database_id_role,
-        default_order_role
+        default_order_role,
+        pixelcnt_role
     };
     ImageItem(QString fn, QString dispn, QKeySequence hotkey, size_t dbid, size_t ord, double pxratio = 1.0);
 
@@ -25,6 +26,7 @@ public:
     size_t database_id() const;
     size_t default_order() const;
     QKeySequence hotkey() const;
+    void set_hotkey(QKeySequence hk);
 };
 
 class ImageItemDelegate : public QAbstractItemDelegate

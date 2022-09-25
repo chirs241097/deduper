@@ -25,6 +25,7 @@ ImageItem::ImageItem(QString fn, QString dispn, QKeySequence hotkey, size_t dbid
     this->setData(pm, Qt::ItemDataRole::DecorationRole);
     this->setData(QVariant::fromValue<size_t>(dbid), ImageItemRoles::database_id_role);
     this->setData(QVariant::fromValue<size_t>(ord), ImageItemRoles::default_order_role);
+    this->setData(QVariant::fromValue<quint64>(1ULL * pm.size().width() * pm.size().height()), ImageItemRoles::pixelcnt_role);
 }
 
 QString ImageItem::path() const
@@ -45,6 +46,11 @@ size_t ImageItem::default_order() const
 QKeySequence ImageItem::hotkey() const
 {
     return this->data(ImageItemRoles::hotkey_role).value<QKeySequence>();
+}
+
+void ImageItem::set_hotkey(QKeySequence hk)
+{
+    this->setData(hk, ImageItemRoles::hotkey_role);
 }
 
 void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const

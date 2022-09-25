@@ -8,10 +8,6 @@
 #include <QPushButton>
 #include <QStandardItemModel>
 #include <QVBoxLayout>
-#include <qdialogbuttonbox.h>
-#include <qfiledialog.h>
-#include <qnamespace.h>
-#include <qstandarditemmodel.h>
 
 PathChooser::PathChooser(QWidget *parent) : QDialog(parent)
 {

@@ -12,11 +12,13 @@
 #include <QDebug>
 #include <QtConcurrent>
 #include <QFutureWatcher>
+#include <QActionGroup>
 #include <QCloseEvent>
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QPushButton>
 #include <QToolBar>
+#include <QToolButton>
 #include <QTimer>
 #include <QMenuBar>
 #include <QMenu>
@@ -73,8 +75,7 @@ Q_DECLARE_METATYPE(fs::path)
 DeduperMainWindow::DeduperMainWindow()
 {
     qRegisterMetaType<fs::path>();
-    this->setFont(QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont));
-    this->setWindowTitle("deduper");
+    this->setWindowTitle("QDeduper");
     this->setup_menu();
     this->update_actions();
     sb = this->statusBar();
@@ -113,7 +114,6 @@ DeduperMainWindow::DeduperMainWindow()
     pd->setAutoReset(false);
     pd->setAutoClose(false);
     pd->setWindowTitle("Progress");
-    pd->setFont(this->font());
     QLabel *pdlb = new QLabel(pd);
     pdlb->setMaximumWidth(500);
     pdlb->setAlignment(Qt::AlignmentFlag::AlignLeft | Qt::AlignmentFlag::AlignVCenter);
@@ -123,6 +123,10 @@ DeduperMainWindow::DeduperMainWindow()
     pd->setMaximumHeight(120);
     pd->setMinimumHeight(120);
     pd->close();
+    QFont fnt = QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont);
+    lv->setFont(fnt);
+    infopanel->setFont(fnt);
+    pd->setFont(fnt);
 
     for (size_t i = 0; i < keys.size(); ++i)
     {
@@ -179,6 +183,8 @@ DeduperMainWindow::DeduperMainWindow()
     infopanel->setText("bleh");
     infopanel->setSizePolicy(QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Minimum);
     nohotkeywarn = false;
+    sort_role = ImageItem::ImageItemRoles::default_order_role;
+    sort_order = Qt::SortOrder::AscendingOrder;
 }
 
 void DeduperMainWindow::setup_menu()
@@ -250,27 +256,11 @@ void DeduperMainWindow::setup_menu()
 
     file->addSeparator();
     QAction *search_img = file->addAction("Search for Image...");
-    QObject::connect(search_img, &QAction::triggered, [this]{
+    QObject::connect(search_img, &QAction::triggered, [this] {
         QString fpath = QFileDialog::getOpenFileName(this, "Select Image", QString(), "Image file");
         if (fpath.isNull()) return;
-        auto sim = this->sdb->search_file(qstring_to_path(fpath));
-        if (sim.empty())
-        {
-            this->sb->showMessage("No similar image found.", 2000);
-            return;
-        }
-        this->vm = ViewMode::view_searchresult;
-        std::vector<size_t> ps;
-        std::map<std::pair<size_t, size_t>, double> dm;
-        for (auto &s : sim)
-        {
-            ps.push_back(s.first);
-            dm[std::make_pair(0, s.first)] = s.second;
-        }
-        this->show_images(ps);
-        this->update_distances(dm);
-        this->sb->showMessage("Use next group / previous group to go back.");
-        this->permamsg->setText("Viewing image search result");
+        searched_image = qstring_to_path(fpath);
+        search_image(searched_image);
     });
     menuact["search_image"] = search_img;
     file->addSeparator();
@@ -324,9 +314,62 @@ void DeduperMainWindow::setup_menu()
 
     view->addSeparator();
     QMenu *sort = view->addMenu("Sort by");
-    sort->addAction("File size");
-    sort->addAction("Image dimension");
-    sort->addAction("File path");
+    QMenu *tbsort = new QMenu(this);
+    QAction *sfsz = new QAction("File size");
+    QAction *simd = new QAction("Image dimension");
+    QAction *sfpt = new QAction("File path");
+    QAction *snon = new QAction("Default");
+    QList<QAction*> skeya = {sfsz, simd, sfpt, snon};
+    QList<ImageItem::ImageItemRoles> skeyr = {
+        ImageItem::ImageItemRoles::file_size_role,
+        ImageItem::ImageItemRoles::pixelcnt_role,
+        ImageItem::ImageItemRoles::path_role,
+        ImageItem::ImageItemRoles::database_id_role,
+    };
+    QActionGroup *skeyg = new QActionGroup(sort);
+    for (int i = 0; i < skeya.size(); ++i)
+    {
+        auto a = skeya[i];
+        sort->addAction(a);
+        tbsort->addAction(a);
+        skeyg->addAction(a);
+        a->setCheckable(true);
+        ImageItem::ImageItemRoles sr = skeyr[i];
+        QObject::connect(a, &QAction::triggered, [this, sr] {
+            this->sort_role = sr;
+            if (this->vm == ViewMode::view_normal)
+                this->show_group(this->curgroup);
+            else
+                this->search_image(this->searched_image);
+        });
+    }
+    snon->setChecked(true);
+    skeyg->setExclusionPolicy(QActionGroup::ExclusionPolicy::Exclusive);
+    sort->addSeparator();
+    tbsort->addSeparator();
+    QAction *sasc = new QAction("Ascending");
+    QAction *sdec = new QAction("Descending");
+    QActionGroup *sordg = new QActionGroup(sort);
+    QList<QAction*> sorda = {sasc, sdec};
+    QList<Qt::SortOrder> sordv = {Qt::SortOrder::AscendingOrder, Qt::SortOrder::DescendingOrder};
+    for (int i = 0; i < sorda.size(); ++i)
+    {
+        auto a = sorda[i];
+        sort->addAction(a);
+        tbsort->addAction(a);
+        sordg->addAction(a);
+        a->setCheckable(true);
+        Qt::SortOrder so = sordv[i];
+        QObject::connect(a, &QAction::triggered, [this, so] {
+            this->sort_order = so;
+            if (this->vm == ViewMode::view_normal)
+                this->show_group(this->curgroup);
+            else
+                this->search_image(this->searched_image);
+        });
+    }
+    sasc->setChecked(true);
+    sordg->setExclusionPolicy(QActionGroup::ExclusionPolicy::Exclusive);
 
     QAction *mall = mark->addAction("Mark All");
     mall->setShortcut(QKeySequence(Qt::Key::Key_X));
@@ -356,6 +399,10 @@ void DeduperMainWindow::setup_menu()
     tb->addAction(prvgrp);
     tb->addAction(nxtgrp);
     tb->addAction(skip);
+    QAction *tbsorta = tb->addAction("Sort by");
+    QToolButton *tbsortb = qobject_cast<QToolButton*>(tb->widgetForAction(tbsorta));
+    tbsortb->setPopupMode(QToolButton::ToolButtonPopupMode::InstantPopup);
+    tbsorta->setMenu(tbsort);
     tb->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextBesideIcon);
 }
 void DeduperMainWindow::update_actions()
@@ -383,6 +430,29 @@ void DeduperMainWindow::update_actions()
         menuact["next_group"]->setEnabled(true);
         menuact["prev_group"]->setEnabled(true);
     }
+}
+
+void DeduperMainWindow::search_image(const fs::path &path)
+{
+    auto sim = this->sdb->search_file(path);
+    if (sim.empty())
+    {
+        this->sb->showMessage("No similar image found.", 2000);
+        return;
+    }
+    this->vm = ViewMode::view_searchresult;
+    std::vector<size_t> ps;
+    std::map<std::pair<size_t, size_t>, double> dm;
+    for (auto &s : sim)
+    {
+        ps.push_back(s.first);
+        dm[std::make_pair(0, s.first)] = s.second;
+    }
+    this->show_images(ps);
+    this->sort_reassign_hotkeys();
+    this->update_distances(dm);
+    this->sb->showMessage("Use next group / previous group to go back.");
+    this->permamsg->setText("Viewing image search result");
 }
 
 void DeduperMainWindow::show_images(const std::vector<size_t> &ids)
@@ -572,9 +642,18 @@ void DeduperMainWindow::show_group(size_t gid)
     this->vm = ViewMode::view_normal;
     auto g = sdb->get_group(gid);
     this->show_images(g);
+    this->sort_reassign_hotkeys();
     this->update_distances(sdb->group_distances(gid));
     this->update_viewstatus(gid, sdb->num_groups());
     this->update_actions();
+}
+
+void DeduperMainWindow::sort_reassign_hotkeys()
+{
+    im->setSortRole(this->sort_role);
+    im->sort(0, this->sort_order);
+    for (int i = 0; i < im->rowCount(); ++i)
+        static_cast<ImageItem*>(im->item(i))->set_hotkey(i < keys.size() ? keys[i] : QKeySequence());
 }
 
 void DeduperMainWindow::mark_toggle(size_t x)

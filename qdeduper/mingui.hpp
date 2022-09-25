@@ -51,17 +51,20 @@ private:
     QProgressDialog *pd = nullptr;
     SignatureDB *sdb = nullptr;
     FileScanner *fsc = nullptr;
-
+    std::unordered_set<fs::path> marked;
+    int sort_role;
+    Qt::SortOrder sort_order;
     size_t curgroup;
+    fs::path searched_image;
     ViewMode vm;
     bool nohotkeywarn;
+
     void mark_toggle(size_t x);
     void mark_all_but(size_t x);
     void mark_all();
     void mark_none(bool msg = true);
     void marked_update(bool update_msg = true);
     fs::path::string_type common_prefix(const std::vector<fs::path> &fns);
-    std::unordered_set<fs::path> marked;
 protected:
     void closeEvent(QCloseEvent *e) override;
     bool eventFilter(QObject *obj, QEvent *ev) override;
@@ -69,6 +72,8 @@ public:
     DeduperMainWindow();
 
     void setup_menu();
+    void sort_reassign_hotkeys();
+    void search_image(const fs::path &path);
     void show_images(const std::vector<size_t> &ids);
     void update_distances(const std::map<std::pair<size_t, size_t>, double> &d);
     void update_viewstatus(size_t cur, size_t size);
