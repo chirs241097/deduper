@@ -12,6 +12,7 @@
 #include <QDebug>
 #include <QtConcurrent>
 #include <QFutureWatcher>
+#include <QApplication>
 #include <QActionGroup>
 #include <QCloseEvent>
 #include <QMouseEvent>
@@ -75,6 +76,7 @@ Q_DECLARE_METATYPE(fs::path)
 DeduperMainWindow::DeduperMainWindow()
 {
     qRegisterMetaType<fs::path>();
+    qApp->setWindowIcon(QIcon(":/img/deduper.png"));
     this->setWindowTitle("QDeduper");
     this->setup_menu();
     this->update_actions();

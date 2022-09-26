@@ -19,6 +19,7 @@ add_executable(qdeduper
     sigdb_qt.cpp
     filescanner.cpp
     pathchooser.cpp
+    resources.qrc
 )
 
 target_link_libraries(qdeduper
