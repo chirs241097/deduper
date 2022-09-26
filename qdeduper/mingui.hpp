@@ -59,6 +59,7 @@ private:
     fs::path searched_image;
     ViewMode vm;
     bool nohotkeywarn;
+    bool markschanged;
 
     void mark_toggle(size_t x);
     void mark_all_but(size_t x);
@@ -66,6 +67,7 @@ private:
     void mark_none(bool msg = true);
     void marked_update(bool update_msg = true);
     fs::path::string_type common_prefix(const std::vector<fs::path> &fns);
+    bool quit_check();
 protected:
     void closeEvent(QCloseEvent *e) override;
     bool eventFilter(QObject *obj, QEvent *ev) override;

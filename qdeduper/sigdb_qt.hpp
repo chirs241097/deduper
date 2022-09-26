@@ -30,6 +30,7 @@ public:
     ~SignatureDB();
 
     bool valid();
+    bool is_dirty();
 
     void scan_files(const std::vector<fs::path> &files, int njobs);
     void interrupt_scan();

@@ -226,6 +226,7 @@ void DeduperMainWindow::setup_menu()
                 }
                 curgroup = 0;
                 show_group(0);
+                this->markschanged = false;
                 fw->deleteLater();
             }, Qt::ConnectionType::QueuedConnection);
         }
@@ -265,7 +266,11 @@ void DeduperMainWindow::setup_menu()
     menuact["search_image"] = search_img;
     file->addSeparator();
     file->addAction("Preferences...");
-    file->addAction("Exit");
+    QAction *exita = file->addAction("Exit");
+    QObject::connect(exita, &QAction::triggered, [this] {
+        if (this->quit_check()) qApp->quit();
+    });
+    menuact["exit"] = exita;
 
     QAction *nxtgrp = view->addAction("Next Group");
     nxtgrp->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowRight));
@@ -577,6 +582,7 @@ void DeduperMainWindow::save_list()
     for (auto &x : this->marked)
         fst << x.native() << std::endl;
     fst.close();
+    this->markschanged = false;
 }
 
 void DeduperMainWindow::load_list()
@@ -603,6 +609,7 @@ void DeduperMainWindow::load_list()
         im->item(i)->setCheckState(marked.find(p) != marked.end() ? Qt::CheckState::Checked : Qt::CheckState::Unchecked);
     }
     marked_update();
+    this->markschanged = false;
 }
 
 void DeduperMainWindow::create_new()
@@ -678,6 +685,7 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
     QObject::connect(fw, &QFutureWatcher<void>::finished, this, [this, fw] {
         this->pd->reset();
         this->pd->close();
+        this->markschanged = false;
         this->curgroup = 0;
         this->vm = ViewMode::view_normal;
         this->show_group(this->curgroup);
@@ -741,6 +749,7 @@ void DeduperMainWindow::mark_toggle(size_t x)
         im->item(x)->setCheckState(ckst);
     }
     marked_update();
+    this->markschanged = true;
 }
 
 void DeduperMainWindow::mark_all_but(size_t x)
@@ -760,6 +769,7 @@ void DeduperMainWindow::mark_all_but(size_t x)
         }
     }
     marked_update();
+    this->markschanged = true;
 }
 
 void DeduperMainWindow::mark_all()
@@ -773,6 +783,7 @@ void DeduperMainWindow::mark_all()
     for (int i = 0; i < im->rowCount(); ++i)
         im->item(i)->setCheckState(Qt::CheckState::Checked);
     marked_update();
+    this->markschanged = true;
 }
 
 void DeduperMainWindow::mark_none(bool msg)
@@ -780,6 +791,7 @@ void DeduperMainWindow::mark_none(bool msg)
     for (int i = 0; i < im->rowCount(); ++i)
         im->item(i)->setCheckState(Qt::CheckState::Unchecked);
     marked_update(msg);
+    this->markschanged = true;
 }
 
 void DeduperMainWindow::marked_update(bool update_msg)
@@ -823,12 +835,20 @@ fs::path::string_type DeduperMainWindow::common_prefix(const std::vector<fs::pat
     return ret;
 }
 
+bool DeduperMainWindow::quit_check()
+{
+    if (!this->sdb || !this->sdb->valid()) return true;
+    if (this->markschanged || this->sdb->is_dirty())
+        return QMessageBox::StandardButton::Yes ==
+               QMessageBox::question(this, "Confirmation", "You have unsaved files list or database. Really quit?",
+                                     QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No,
+                                     QMessageBox::StandardButton::No);
+    return true;
+}
+
 void DeduperMainWindow::closeEvent(QCloseEvent *e)
 {
-    if (QMessageBox::StandardButton::Yes ==
-        QMessageBox::question(this, "Confirmation", "Really quit?",
-                              QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No,
-                              QMessageBox::StandardButton::No))
+    if (quit_check())
         e->accept();
     else
         e->ignore();

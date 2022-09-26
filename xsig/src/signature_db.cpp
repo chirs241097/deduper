@@ -30,6 +30,9 @@ struct signature_db_priv
     sqlite3_stmt *bst[batch_status::BATCH_STATUS_MAX];
     thread_pool *tp;
 
+    bool dirty;
+    bool ramdb;
+
     void init_db();
     bool verify_db();
 
@@ -38,6 +41,7 @@ struct signature_db_priv
 
 void signature_db_priv::init_db()
 {
+    dirty = true;
     sqlite3_exec(db, R"sql(
         create table sigdbinfo(
             version int
@@ -110,6 +114,7 @@ signature_db::signature_db(const fs::path &dbpath)
     {
         sqlite3_open(":memory:", &p->db);
         p->init_db();
+        p->ramdb = true;
     }
     else
     {
@@ -120,6 +125,7 @@ signature_db::signature_db(const fs::path &dbpath)
         sqlite3_open(dbpath.c_str(), &p->db);
 #endif
         if (need_init) p->init_db();
+        p->ramdb = false;
     }
 
     p->mtx = sqlite3_db_mutex(p->db);
@@ -151,10 +157,13 @@ signature_db::~signature_db()
 
 bool signature_db::valid()
 { return static_cast<bool>(p->db); }
+bool signature_db::is_dirty()
+{ return p->ramdb && p->dirty; }
 
 size_t signature_db::put_signature(const fs::path &path, const signature &sig,size_t id)
 {
     if (!p->db) [[ unlikely ]] return ~size_t(0);
+    p->dirty = true;
     sqlite3_stmt *st;
     std::string sigs = sig.to_string();
     sqlite3_prepare_v2(p->db, "insert into images (id, path, signature) values(?, ?, ?);", -1, &st, 0);
@@ -242,6 +251,7 @@ void signature_db::batch_put_subslice_begin()
 void signature_db::put_subslice(size_t id, size_t slice, const signature &slicesig)
 {
     if (!p->db) [[ unlikely ]] return;
+    p->dirty = true;
     sqlite3_stmt *st = nullptr;
     if (p->bst[batch_status::putsub])
         st = p->bst[batch_status::putsub];
@@ -305,6 +315,7 @@ void signature_db::batch_find_subslice_end()
 void signature_db::put_dupe_pair(size_t ida, size_t idb, double dist)
 {
     if (!p->db) [[ unlikely ]] return;
+    p->dirty = true;
     sqlite3_stmt *st = nullptr;
     sqlite3_prepare_v2(p->db, "insert into dupes (id1, id2, dist) values(?, ?, ?);", -1, &st, 0);
     sqlite3_bind_int(st, 1, ida);
@@ -366,6 +377,7 @@ bool signature_db::to_db_file(const fs::path &path)
     }
     ret &= (SQLITE_OK == sqlite3_backup_finish(bk));
     ret &= (SQLITE_OK == sqlite3_close(dest));
+    if (ret) p->dirty = false;
     return ret;
 }
 bool signature_db::from_db_file(const fs::path &path)
@@ -390,6 +402,7 @@ bool signature_db::from_db_file(const fs::path &path)
     }
     ret &= (SQLITE_OK == sqlite3_backup_finish(bk));
     ret &= (SQLITE_OK == sqlite3_close(src));
+    if (ret) p->dirty = false;
     return ret;
 }
 

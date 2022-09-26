@@ -77,6 +77,11 @@ bool SignatureDB::valid()
     return sdb->valid();
 }
 
+bool SignatureDB::is_dirty()
+{
+    return sdb->is_dirty();
+}
+
 void SignatureDB::scan_files(const std::vector<fs::path> &files, int njobs)
 {
     populate_cfg_t pcfg = {

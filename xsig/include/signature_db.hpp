@@ -45,7 +45,12 @@ public:
     signature_db(const fs::path &dbpath = fs::path());
     ~signature_db();
 
+    //true if db is valid, false if not.
+    //only useful when opening an existing db file
     bool valid();
+    //true if db has changes that are not written to disk, false otherwise
+    //always true if db is not in RAM.
+    bool is_dirty();
 
     //insert image signature into database
     //if id is omitted, it's assigned automatically and returned
