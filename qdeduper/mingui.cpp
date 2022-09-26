@@ -337,10 +337,17 @@ void DeduperMainWindow::setup_menu()
         ImageItem::ImageItemRoles sr = skeyr[i];
         QObject::connect(a, &QAction::triggered, [this, sr] {
             this->sort_role = sr;
-            if (this->vm == ViewMode::view_normal)
-                this->show_group(this->curgroup);
-            else
-                this->search_image(this->searched_image);
+            switch (this->vm)
+            {
+                case ViewMode::view_normal:
+                    this->show_group(this->curgroup);
+                    break;
+                case ViewMode::view_searchresult:
+                    this->search_image(this->searched_image);
+                    break;
+                case ViewMode::view_marked:
+                    this->show_marked();
+            }
         });
     }
     snon->setChecked(true);
@@ -362,10 +369,17 @@ void DeduperMainWindow::setup_menu()
         Qt::SortOrder so = sordv[i];
         QObject::connect(a, &QAction::triggered, [this, so] {
             this->sort_order = so;
-            if (this->vm == ViewMode::view_normal)
-                this->show_group(this->curgroup);
-            else
-                this->search_image(this->searched_image);
+            switch (this->vm)
+            {
+                case ViewMode::view_normal:
+                    this->show_group(this->curgroup);
+                    break;
+                case ViewMode::view_searchresult:
+                    this->search_image(this->searched_image);
+                    break;
+                case ViewMode::view_marked:
+                    this->show_marked();
+            }
         });
     }
     sasc->setChecked(true);
@@ -422,7 +436,9 @@ void DeduperMainWindow::setup_menu()
     });
     menuact["mark_all_dir_rec"] = madirr;
     mark->addSeparator();
-    mark->addAction("Review Marked Images");
+    QAction *view_marked = mark->addAction("Review Marked Images");
+    QObject::connect(view_marked, &QAction::triggered, this, &DeduperMainWindow::show_marked);
+    menuact["view_marked"] = view_marked;
 
     help->addAction("Help");
     help->addSeparator();
@@ -462,7 +478,7 @@ void DeduperMainWindow::update_actions()
     menuact["save_db"]->setEnabled(true);
     menuact["load_list"]->setEnabled(true);
     menuact["save_list"]->setEnabled(true);
-    if (vm == ViewMode::view_searchresult)
+    if (vm != ViewMode::view_normal)
     {
         menuact["next_group"]->setEnabled(true);
         menuact["prev_group"]->setEnabled(true);
@@ -485,6 +501,7 @@ void DeduperMainWindow::search_image(const fs::path &path)
         ps.push_back(s.first);
         dm[std::make_pair(0, s.first)] = s.second;
     }
+    this->id->set_show_hotkey(false);
     this->show_images(ps);
     this->sort_reassign_hotkeys();
     this->update_distances(dm);
@@ -499,7 +516,7 @@ void DeduperMainWindow::show_images(const std::vector<size_t> &ids)
     for (auto &id : ids) fns.push_back(this->sdb->get_image_path(id));
     fs::path::string_type common_pfx = common_prefix(fns);
     size_t idx = 0;
-    if (ids.size() > keys.size() && !nohotkeywarn)
+    if (ids.size() > keys.size() && !nohotkeywarn && this->vm != ViewMode::view_marked)
         nohotkeywarn = QMessageBox::StandardButton::Ignore ==
                        QMessageBox::warning(this,
                              "Too many duplicates",
@@ -677,12 +694,28 @@ void DeduperMainWindow::show_group(size_t gid)
     if (!sdb || gid >= sdb->num_groups())
         return;
     this->vm = ViewMode::view_normal;
+    this->id->set_show_hotkey(true);
     auto g = sdb->get_group(gid);
     this->show_images(g);
     this->sort_reassign_hotkeys();
     this->update_distances(sdb->group_distances(gid));
     this->update_viewstatus(gid, sdb->num_groups());
     this->update_actions();
+}
+
+void DeduperMainWindow::show_marked()
+{
+    this->id->set_show_hotkey(false);
+    this->vm = ViewMode::view_marked;
+    std::vector<size_t> g;
+    for (auto &m : marked)
+        g.push_back(this->sdb->get_path_id(m));
+    this->show_images(g);
+    this->sort_reassign_hotkeys();
+    this->update_distances({});
+    this->update_actions();
+    this->sb->showMessage("Use next group / previous group to go back.");
+    this->permamsg->setText("Viewing marked images");
 }
 
 void DeduperMainWindow::sort_reassign_hotkeys()

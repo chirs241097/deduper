@@ -31,7 +31,8 @@ namespace fs = std::filesystem;
 enum ViewMode
 {
     view_normal,
-    view_searchresult
+    view_searchresult,
+    view_marked
 };
 
 class DeduperMainWindow : public QMainWindow
@@ -85,6 +86,7 @@ public Q_SLOTS:
     void create_new();
     void update_actions();
     void show_group(size_t gid);
+    void show_marked();
 Q_SIGNALS:
     void next();
     void prev();

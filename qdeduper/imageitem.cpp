@@ -61,6 +61,9 @@ void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opt
     bfnt.setBold(true);
     QFontMetrics bfm(bfnt);
     imr.adjust(0, 0, 0, -2 * HKPADD - bfm.height() - LINESP);
+    QTextOption topt;
+    topt.setWrapMode(QTextOption::WrapMode::NoWrap);
+    topt.setAlignment(Qt::AlignmentFlag::AlignHCenter);
 
     QRect selr = option.rect.adjusted(MARGIN, MARGIN, -MARGIN, -MARGIN);
     QStyleOptionViewItem so(option);
@@ -78,7 +81,9 @@ void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opt
 
     QPoint hko = dtopright + QPoint(HKPADD, HKPADD + LINESP);
     QKeySequence ks = index.data(ImageItem::ImageItemRoles::hotkey_role).value<QKeySequence>();
-    QString kss = ks.toString();
+    QString kss = ks.isEmpty() ? "(-)" : ks.toString();
+    if (!show_hotkey)
+        kss = QString::number(index.row() + 1);
     QRect r = bfm.boundingRect(kss);
     r.moveTopLeft(hko);
     QRect hkbg = r.adjusted(-HKPADD, -HKPADD, HKPADD, HKPADD);
@@ -96,7 +101,12 @@ void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opt
     painter->setPen(option.widget->palette().color(QPalette::ColorGroup::Normal, QPalette::ColorRole::Window));
     painter->setBrush(QBrush());
     painter->setFont(bfnt);
-    painter->drawText(r, kss);
+    painter->drawText(r, kss, topt);
+#if DEBUGPAINT
+    painter->setPen(QPen(Qt::GlobalColor::red));
+    painter->drawRect(r);
+    painter->drawRect(hkbg);
+#endif
 
     QPoint ftopright = hkbg.topRight() + QPoint(LINESP + HKSHDS, 0);
     QSize dim = index.data(ImageItem::ImageItemRoles::dimension_role).value<QSize>();
@@ -105,8 +115,6 @@ void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opt
                     .arg(dim.width()).arg(dim.height())
                     .arg(QLocale::system().formattedDataSize(fsz, 3));
     QString fns = index.data(Qt::ItemDataRole::DisplayRole).toString();
-    QTextOption topt;
-    topt.setWrapMode(QTextOption::WrapMode::NoWrap);
     r = option.fontMetrics.boundingRect(infos);
     r.moveTopLeft(ftopright + QPoint(0, (hkbg.height() - r.height()) / 2));
     painter->setFont(option.font);
@@ -186,6 +194,11 @@ void ImageItemDelegate::set_single_item_mode(bool enabled)
 bool ImageItemDelegate::is_single_item_mode()
 {
     return singlemode;
+}
+
+void ImageItemDelegate::set_show_hotkey(bool show)
+{
+    show_hotkey = show;
 }
 
 void ImageItemDelegate::set_model(QAbstractItemModel *m)

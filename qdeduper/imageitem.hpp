@@ -41,6 +41,7 @@ private:
     int vw = -1;
     int hh = -1;
     bool singlemode = false;
+    bool show_hotkey = true;
     QAbstractItemModel *im = nullptr;
 public:
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
@@ -50,6 +51,8 @@ public:
 
     void set_single_item_mode(bool enabled);
     bool is_single_item_mode();
+
+    void set_show_hotkey(bool show);
 
     void set_model(QAbstractItemModel *m);
 Q_SIGNALS:
