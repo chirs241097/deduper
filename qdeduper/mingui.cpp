@@ -211,7 +211,8 @@ void DeduperMainWindow::setup_menu()
             pd->setMinimum(0);
             pd->setLabelText("Loading database...");
             pd->open();
-            pd->setCancelButton(nullptr);
+            QPushButton *cancelbtn = pd->findChild<QPushButton*>();
+            if (Q_LIKELY(cancelbtn)) cancelbtn->setVisible(false);
             auto f = QtConcurrent::run([this, dbpath]() -> bool {
                 return this->sdb->load(qstring_to_path(dbpath));
             });
@@ -629,7 +630,8 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
     this->pd->setLabelText("Preparing for database creation...");
     this->pd->setMinimum(0);
     this->pd->setMaximum(0);
-    this->pd->setCancelButton(new QPushButton("Cancel"));
+    QPushButton *cancelbtn = this->pd->findChild<QPushButton*>();
+    if (Q_LIKELY(cancelbtn)) cancelbtn->setVisible(true);
     auto f = QtConcurrent::run([this, paths] {
         FileScanner *fs = new FileScanner();
         this->fsc = fs;
