@@ -40,6 +40,7 @@ public:
     std::vector<size_t> get_group(size_t gid);
     std::map<std::pair<size_t, size_t>, double> group_distances(size_t gid);
 
+    std::vector<size_t> get_image_ids();
     fs::path get_image_path(size_t id);
     size_t get_path_id(const fs::path &p);
 

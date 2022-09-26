@@ -383,7 +383,44 @@ void DeduperMainWindow::setup_menu()
     menuact["mark_none"] = mnone;
     this->addAction(mnone);
 
-    mark->addAction("Mark All within...");
+    QAction *madir = mark->addAction("Mark All within directory...");
+    QObject::connect(madir, &QAction::triggered, [this] {
+        QString s = QFileDialog::getExistingDirectory(this, "Open");
+        if (s.isNull() || s.isEmpty()) return;
+        fs::path p = qstring_to_path(s);
+        for (auto &id : this->sdb->get_image_ids())
+        {
+            fs::path fp = this->sdb->get_image_path(id);
+            if (fp.parent_path() == p)
+                this->marked.insert(fp);
+        }
+        for (int i = 0; i < im->rowCount(); ++i)
+        {
+            ImageItem *itm = static_cast<ImageItem*>(im->item(i));
+            fs::path fp = qstring_to_path(itm->path());
+            itm->setCheckState(marked.find(fp) == marked.end() ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
+        }
+    });
+    menuact["mark_all_dir"] = madir;
+    QAction *madirr = mark->addAction("Mark All within directory and subdirectory...");
+    QObject::connect(madirr, &QAction::triggered, [this] {
+        QString s = QFileDialog::getExistingDirectory(this, "Open");
+        if (s.isNull() || s.isEmpty()) return;
+        fs::path p = qstring_to_path(s);
+        for (auto &id : this->sdb->get_image_ids())
+        {
+            fs::path fp = this->sdb->get_image_path(id);
+            if (!fsstr_to_qstring(fp.lexically_relative(p)).startsWith("../"))
+                this->marked.insert(fp);
+        }
+        for (int i = 0; i < im->rowCount(); ++i)
+        {
+            ImageItem *itm = static_cast<ImageItem*>(im->item(i));
+            fs::path fp = qstring_to_path(itm->path());
+            itm->setCheckState(marked.find(fp) == marked.end() ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
+        }
+    });
+    menuact["mark_all_dir_rec"] = madirr;
     mark->addSeparator();
     mark->addAction("Review Marked Images");
 

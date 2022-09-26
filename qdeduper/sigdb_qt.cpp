@@ -145,6 +145,14 @@ std::map<std::pair<size_t, size_t>, double> SignatureDB::group_distances(size_t 
     return ret;
 }
 
+std::vector<size_t> SignatureDB::get_image_ids()
+{
+    std::vector<size_t> ret;
+    for (auto &f : fmap)
+        ret.push_back(f.first);
+    return ret;
+}
+
 fs::path SignatureDB::get_image_path(size_t id)
 {
     if (fmap.find(id) == fmap.end())
