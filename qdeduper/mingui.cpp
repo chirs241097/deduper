@@ -233,6 +233,7 @@ void DeduperMainWindow::setup_menu()
     QAction *load_db = file->addAction("Load Database...");
     load_db->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_DialogOpenButton));
     QObject::connect(load_db, &QAction::triggered, [this] {
+        if (!modified_check(false)) return;
         QString dbpath = QFileDialog::getOpenFileName(this, "Load Database", QString(), "Signature database (*.sigdb)");
         if (!dbpath.isNull())
         {
@@ -303,7 +304,7 @@ void DeduperMainWindow::setup_menu()
     menuact["preferences"] = pref;
     QAction *exita = file->addAction("Exit");
     QObject::connect(exita, &QAction::triggered, [this] {
-        if (this->quit_check()) qApp->quit();
+        if (this->modified_check()) qApp->quit();
     });
     menuact["exit"] = exita;
 
@@ -649,6 +650,7 @@ void DeduperMainWindow::load_list()
 
 void DeduperMainWindow::create_new()
 {
+    if (!modified_check(false)) return;
     PathChooser *pc = new PathChooser(this);
     pc->setModal(true);
     if (pc->exec() == QDialog::DialogCode::Accepted)
@@ -899,12 +901,13 @@ fs::path::string_type DeduperMainWindow::common_prefix(const std::vector<fs::pat
     return ret;
 }
 
-bool DeduperMainWindow::quit_check()
+bool DeduperMainWindow::modified_check(bool quitting)
 {
     if (!this->sdb || !this->sdb->valid()) return true;
     if (this->markschanged || this->sdb->is_dirty())
         return QMessageBox::StandardButton::Yes ==
-               QMessageBox::question(this, "Confirmation", "You have unsaved files list or database. Really quit?",
+               QMessageBox::question(this, "Confirmation", quitting ? "You have unsaved files list or database. Really quit?"
+                                                                    : "You have unsaved files list or database. Proceed?",
                                      QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No,
                                      QMessageBox::StandardButton::No);
     return true;
@@ -912,7 +915,7 @@ bool DeduperMainWindow::quit_check()
 
 void DeduperMainWindow::closeEvent(QCloseEvent *e)
 {
-    if (quit_check())
+    if (modified_check())
         e->accept();
     else
         e->ignore();

@@ -74,7 +74,7 @@ private:
     void mark_none(bool msg = true);
     void marked_update(bool update_msg = true);
     fs::path::string_type common_prefix(const std::vector<fs::path> &fns);
-    bool quit_check();
+    bool modified_check(bool quitting = true);
 protected:
     void closeEvent(QCloseEvent *e) override;
     bool eventFilter(QObject *obj, QEvent *ev) override;
