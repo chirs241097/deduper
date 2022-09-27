@@ -128,10 +128,14 @@ DeduperMainWindow::DeduperMainWindow()
     pd->setMaximumHeight(120);
     pd->setMinimumHeight(120);
     pd->close();
+    Qt::WindowFlags pdwf = pd->windowFlags();
+    pdwf |= Qt::WindowType::CustomizeWindowHint;
+    pdwf &= ~(Qt::WindowType::WindowCloseButtonHint | Qt::WindowType::WindowContextHelpButtonHint);
+    pd->setWindowFlags(pdwf);
     QFont fnt = QFontDatabase::systemFont(QFontDatabase::SystemFont::FixedFont);
     lv->setFont(fnt);
     infopanel->setFont(fnt);
-    pd->setFont(fnt);
+    pdlb->setFont(fnt);
 
     sr = new SettingsRegistry(QStandardPaths::writableLocation(QStandardPaths::StandardLocation::ConfigLocation) + QString("/qdeduperrc"));
     int generalt = sr->register_tab("General");
@@ -701,6 +705,8 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
             {
                 this->pd->setMaximum(0);
                 this->pd->setLabelText("Finalizing...");
+                QPushButton *cancelbtn = this->pd->findChild<QPushButton*>();
+                if (Q_LIKELY(cancelbtn)) cancelbtn->setVisible(false);
             }
         }, Qt::ConnectionType::QueuedConnection);
         populate_cfg_t c = this->sdb->get_sig_config();
