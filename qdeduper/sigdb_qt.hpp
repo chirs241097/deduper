@@ -22,6 +22,7 @@ private:
     std::unordered_map<fs::path, size_t> frmap;
     std::map<std::pair<size_t, size_t>, double> distmap;
     std::vector<std::vector<size_t>> groups;
+    populate_cfg_t cfg;
 
     void create_priv_struct();
 public:
@@ -32,7 +33,10 @@ public:
     bool valid();
     bool is_dirty();
 
-    void scan_files(const std::vector<fs::path> &files, int njobs);
+    populate_cfg_t get_sig_config();
+    void set_sig_config(populate_cfg_t cfg);
+
+    void scan_files(const std::vector<fs::path> &files);
     void interrupt_scan();
 
     std::vector<std::pair<size_t, double>> search_file(const fs::path &files);

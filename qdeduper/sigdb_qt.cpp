@@ -32,6 +32,15 @@ signature_config cfg_subslice =
 SignatureDB::SignatureDB() : QObject(nullptr)
 {
     sdb = new signature_db();
+    cfg = {
+        3,
+        3,
+        cfg_full,
+        cfg_subslice,
+        0.3,
+        nullptr,
+        1
+    };
 }
 
 SignatureDB::SignatureDB(const fs::path &dbpath) : QObject(nullptr)
@@ -82,17 +91,21 @@ bool SignatureDB::is_dirty()
     return sdb->is_dirty();
 }
 
-void SignatureDB::scan_files(const std::vector<fs::path> &files, int njobs)
+populate_cfg_t SignatureDB::get_sig_config()
 {
-    populate_cfg_t pcfg = {
-        3,
-        3,
-        cfg_full,
-        cfg_subslice,
-        0.3,
-        [this](size_t c,int){Q_EMIT image_scanned(c);},
-        njobs
-    };
+    return cfg;
+}
+
+void SignatureDB::set_sig_config(populate_cfg_t cfg)
+{
+    this->cfg = cfg;
+}
+
+void SignatureDB::scan_files(const std::vector<fs::path> &files)
+{
+    populate_cfg_t pcfg = cfg;
+    pcfg.callback = [this](size_t c,int){Q_EMIT image_scanned(c);};
+
     sdb->populate(files, pcfg);
 
     Q_EMIT image_scanned(~size_t(0));
@@ -109,17 +122,8 @@ void SignatureDB::interrupt_scan()
 
 std::vector<std::pair<size_t, double>> SignatureDB::search_file(const fs::path &files)
 {
-    populate_cfg_t pcfg = {
-        3,
-        3,
-        cfg_full,
-        cfg_subslice,
-        0.3,
-        nullptr,
-        0
-    };
     if(sdb)
-        return sdb->search_image(files, pcfg, false);
+        return sdb->search_image(files, cfg, false);
     return {};
 }
 

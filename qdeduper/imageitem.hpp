@@ -40,6 +40,7 @@ private:
     const static int HKSHDS = 2;
     int vw = -1;
     int hh = -1;
+    int min_height = 64;
     bool singlemode = false;
     bool show_hotkey = true;
     QAbstractItemModel *im = nullptr;
@@ -47,7 +48,8 @@ public:
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const;
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const;
     void resize();
-    void setScrollbarMargins(int vw, int hh);
+    void set_scrollbar_margins(int vw, int hh);
+    void set_min_height(int mh);
 
     void set_single_item_mode(bool enabled);
     bool is_single_item_mode();

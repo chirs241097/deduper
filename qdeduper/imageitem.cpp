@@ -149,7 +149,6 @@ QSize ImageItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QMod
     fnt.setBold(true);
     QFontMetrics fm(fnt);
     int extra_height = 2 * MARGIN + 2 * BORDER + LINESP + fm.height() + 2 * HKPADD + HKSHDS;
-    int min_height = 64;
     int max_height = imh;
 
     QSize dim = index.data(ImageItem::ImageItemRoles::dimension_role).value<QSize>();
@@ -178,10 +177,19 @@ void ImageItemDelegate::resize()
             Q_EMIT sizeHintChanged(im->index(i, 0));
 }
 
-void ImageItemDelegate::setScrollbarMargins(int vw, int hh)
+void ImageItemDelegate::set_scrollbar_margins(int vw, int hh)
 {
     this->vw = vw;
     this->hh = hh;
+}
+
+void ImageItemDelegate::set_min_height(int mh)
+{
+    if (mh != this->min_height)
+    {
+        this->min_height = mh;
+        resize();
+    }
 }
 
 void ImageItemDelegate::set_single_item_mode(bool enabled)

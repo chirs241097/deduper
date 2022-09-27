@@ -3,6 +3,8 @@
 #include "filescanner.hpp"
 #include "pathchooser.hpp"
 #include "sigdb_qt.hpp"
+#include "settings.hpp"
+#include "preferencedialog.hpp"
 
 #include <chrono>
 #include <fstream>
@@ -18,6 +20,7 @@
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QPushButton>
+#include <QStandardPaths>
 #include <QToolBar>
 #include <QToolButton>
 #include <QTimer>
@@ -98,7 +101,7 @@ DeduperMainWindow::DeduperMainWindow()
     lv->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
     lv->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
     id = new ImageItemDelegate();
-    id->setScrollbarMargins(lv->verticalScrollBar()->width(),
+    id->set_scrollbar_margins(lv->verticalScrollBar()->width(),
                             lv->horizontalScrollBar()->height());
     id->set_model(im);
     lv->setItemDelegate(id);
@@ -129,6 +132,20 @@ DeduperMainWindow::DeduperMainWindow()
     lv->setFont(fnt);
     infopanel->setFont(fnt);
     pd->setFont(fnt);
+
+    sr = new SettingsRegistry(QStandardPaths::writableLocation(QStandardPaths::StandardLocation::ConfigLocation) + QString("/qdeduperrc"));
+    int generalt = sr->register_tab("General");
+    sr->register_int_option(generalt, "min_image_dim", "Minimal Dimension in Image View", 16, 4096, 64);
+    sr->register_int_option(generalt, "thread_count", "Number of Threads (0 = Automatic)", 0, 4096, 0);
+    sr->register_bool_option(generalt, "toolbar_text", "Show Text in Toolbar Buttons", true);
+    int sigt = sr->register_tab("Signature");
+    sr->register_double_option(sigt, "signature/threshold", "Distance Threshold", 0, 1, 0.3);
+    prefdlg = new PreferenceDialog(sr, this);
+    prefdlg->setModal(true);
+    prefdlg->close();
+    QObject::connect(menuact["preferences"], &QAction::triggered, prefdlg, &PreferenceDialog::open);
+    QObject::connect(prefdlg, &PreferenceDialog::accepted, this, &DeduperMainWindow::apply_prefs);
+    apply_prefs();
 
     for (size_t i = 0; i < keys.size(); ++i)
     {
@@ -187,6 +204,11 @@ DeduperMainWindow::DeduperMainWindow()
     nohotkeywarn = false;
     sort_role = ImageItem::ImageItemRoles::default_order_role;
     sort_order = Qt::SortOrder::AscendingOrder;
+}
+
+DeduperMainWindow::~DeduperMainWindow()
+{
+    delete sr;
 }
 
 void DeduperMainWindow::setup_menu()
@@ -268,7 +290,8 @@ void DeduperMainWindow::setup_menu()
     });
     menuact["search_image"] = search_img;
     file->addSeparator();
-    file->addAction("Preferences...");
+    QAction *pref = file->addAction("Preferences...");
+    menuact["preferences"] = pref;
     QAction *exita = file->addAction("Exit");
     QObject::connect(exita, &QAction::triggered, [this] {
         if (this->quit_check()) qApp->quit();
@@ -680,7 +703,13 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
                 this->pd->setLabelText("Finalizing...");
             }
         }, Qt::ConnectionType::QueuedConnection);
-        this->sdb->scan_files(fs->file_list(), std::thread::hardware_concurrency());
+        populate_cfg_t c = this->sdb->get_sig_config();
+        int nthreads = this->sr->get_option_int("thread_count");
+        if (!nthreads) nthreads = std::thread::hardware_concurrency();
+        c.njobs = nthreads;
+        c.threshold = this->sr->get_option_double("signature/threshold");
+        this->sdb->set_sig_config(c);
+        this->sdb->scan_files(fs->file_list());
         delete fs;
         this->fsc = nullptr;
     });
@@ -728,6 +757,13 @@ void DeduperMainWindow::show_marked()
     this->update_actions();
     this->sb->showMessage("Use next group / previous group to go back.");
     this->permamsg->setText("Viewing marked images");
+}
+
+void DeduperMainWindow::apply_prefs()
+{
+    id->set_min_height(sr->get_option_int("min_image_dim"));
+    tb->setToolButtonStyle(sr->get_option_bool("toolbar_text") ? Qt::ToolButtonStyle::ToolButtonTextBesideIcon
+                                                               : Qt::ToolButtonStyle::ToolButtonIconOnly);
 }
 
 void DeduperMainWindow::sort_reassign_hotkeys()

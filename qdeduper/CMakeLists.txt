@@ -19,6 +19,8 @@ add_executable(qdeduper
     sigdb_qt.cpp
     filescanner.cpp
     pathchooser.cpp
+    settings.cpp
+    preferencedialog.cpp
     resources.qrc
 )
 

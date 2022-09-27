@@ -25,6 +25,8 @@ class QStandardItemModel;
 class QToolBar;
 class FileScanner;
 class ImageItemDelegate;
+class SettingsRegistry;
+class PreferenceDialog;
 
 namespace fs = std::filesystem;
 
@@ -44,7 +46,7 @@ private:
     QLabel *permamsg;
     QStatusBar *sb;
     QListView *lv;
-    QToolBar *tb;
+    QToolBar *tb = nullptr;
     std::map<std::string, QAction*> menuact;
     QList<QAction*> selhk;
     QStandardItemModel *im = nullptr;
@@ -52,6 +54,8 @@ private:
     QProgressDialog *pd = nullptr;
     SignatureDB *sdb = nullptr;
     FileScanner *fsc = nullptr;
+    SettingsRegistry *sr = nullptr;
+    PreferenceDialog *prefdlg = nullptr;
     std::unordered_set<fs::path> marked;
     int sort_role;
     Qt::SortOrder sort_order;
@@ -73,6 +77,7 @@ protected:
     bool eventFilter(QObject *obj, QEvent *ev) override;
 public:
     DeduperMainWindow();
+    ~DeduperMainWindow();
 
     void setup_menu();
     void sort_reassign_hotkeys();
@@ -89,6 +94,7 @@ public Q_SLOTS:
     void update_actions();
     void show_group(size_t gid);
     void show_marked();
+    void apply_prefs();
 Q_SIGNALS:
     void next();
     void prev();
