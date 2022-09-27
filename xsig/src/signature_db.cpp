@@ -581,7 +581,11 @@ void signature_db::group_similar()
     batch_ds_set_parent_begin();
     auto pairs = this->dupe_pairs();
     for (auto &p : pairs)
+    {
         ds_merge(p.id1, p.id2);
+        ds_find(p.id1);
+        ds_find(p.id2);
+    }
     batch_ds_get_parent_end();
     batch_ds_set_parent_end();
 }
