@@ -588,30 +588,32 @@ void signature_db::group_similar()
 
 std::vector<std::vector<size_t>> signature_db::groups_get()
 {
-    sqlite3_stmt *sto = nullptr;
-    sqlite3_stmt *sti = nullptr;
-    sqlite3_prepare_v2(p->db, "select distinct parent from dspar;", -1, &sto, 0);
-    sqlite3_prepare_v2(p->db, "select id from dspar where parent = ?;", -1, &sti, 0);
+    sqlite3_stmt *st = nullptr;
+    sqlite3_prepare_v2(p->db, R"sql(
+        select id, dspar.parent, cnt from dspar
+        inner join (select parent, count(parent) as cnt from dspar group by parent) c
+        on dspar.parent = c.parent
+        where cnt > 1 order by dspar.parent;
+    )sql", -1, &st, 0);
     std::vector<std::vector<size_t>> ret;
+    std::vector<size_t> cur;
+    size_t last_par = ~size_t(0);
 
     while (1)
     {
-        int r = sqlite3_step(sto);
+        int r = sqlite3_step(st);
         if (r != SQLITE_ROW) break;
-        size_t dpar = (size_t)sqlite3_column_int(sto, 0);
-        sqlite3_bind_int(sti, 1, dpar);
-        std::vector<size_t> v;
-        while (1)
+        size_t id = (size_t)sqlite3_column_int(st, 0);
+        size_t par = (size_t)sqlite3_column_int(st, 1);
+        if (par != last_par)
         {
-            int ri = sqlite3_step(sti);
-            if (ri != SQLITE_ROW) break;
-            size_t id = (size_t)sqlite3_column_int(sti, 0);
-            v.push_back(id);
+            if (!cur.empty()) ret.push_back(cur);
+            cur.clear();
+            last_par = par;
         }
-        ret.push_back(v);
-        sqlite3_reset(sti);
+        cur.push_back(id);
     }
-    sqlite3_finalize(sto);
-    sqlite3_finalize(sti);
+    if (!cur.empty()) ret.push_back(cur);
+    sqlite3_finalize(st);
     return ret;
 }

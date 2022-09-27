@@ -77,7 +77,7 @@ void SignatureDB::create_priv_struct()
         distmap[std::make_pair(dupe.id1, dupe.id2)] = dupe.distance;
 
     auto gps = sdb->groups_get();
-    gps.erase(std::remove_if(gps.begin(), gps.end(), [](std::vector<size_t> v){ return v.size() < 2; }), gps.end());
+    //gps.erase(std::remove_if(gps.begin(), gps.end(), [](std::vector<size_t> v){ return v.size() < 2; }), gps.end());
     this->groups = std::move(gps);
 }
 

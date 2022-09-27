@@ -115,6 +115,7 @@ public:
     //usually very fast, unless you have a crack ton of duplicates...
     void group_similar();
     //get all groups, each countained in their own lists.
+    //now no longer returns group with size of 1.
     std::vector<std::vector<size_t>> groups_get();
 };
 
