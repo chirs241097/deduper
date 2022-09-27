@@ -90,7 +90,7 @@ int parse_arguments(int argc, char **argv)
         {"recursive", no_argument      , &recursive, 1},
 //      {"destdir"  , required_argument, 0         , 'D'},
         {"jobs"     , required_argument, 0         , 'j'},
-//      {"threshold", required_argument, 0         , 'd'},
+      {"threshold", required_argument, 0         , 'd'},
         {"help"     , no_argument      , &help     , 1},
         {0          , 0                , 0         , 0}
     };
@@ -105,8 +105,8 @@ int parse_arguments(int argc, char **argv)
                 if (longopt[idx].flag) break;
                 if (std::string("jobs") == longopt[idx].name)
                     sscanf(optarg, "%d", &njobs);
-                //if(std::string("threshold") == longopt[idx].name)
-                    //sscanf(optarg, "%lf", &threshold);
+                if(std::string("threshold") == longopt[idx].name)
+                    sscanf(optarg, "%lf", &threshold);
             break;
             case 'r':
                 recursive = 1;
@@ -118,7 +118,7 @@ int parse_arguments(int argc, char **argv)
                 sscanf(optarg, "%d", &njobs);
             break;
             case 'd':
-                //sscanf(optarg, "%lf", &threshold);
+                sscanf(optarg, "%lf", &threshold);
             break;
         }
     }
@@ -143,7 +143,7 @@ int parse_arguments(int argc, char **argv)
         " -h, --help        Display this help message and exit.\n"
         " -r, --recursive   Recurse into all directories.\n"
         " -j, --jobs        Number of concurrent tasks to run at once.\n"
-//      " -d, --threshold   Threshold distance below which images will be considered similar.\n"
+      " -d, --threshold   Threshold distance below which images will be considered similar.\n"
         ,argv[0]
         );
         return 1;
