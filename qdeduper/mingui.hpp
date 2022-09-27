@@ -23,6 +23,7 @@ class QProgressDialog;
 class QSplitter;
 class QStandardItemModel;
 class QToolBar;
+class QTimer;
 class FileScanner;
 class ImageItemDelegate;
 class SettingsRegistry;
@@ -44,6 +45,7 @@ private:
     QSplitter *l;
     QTextEdit *infopanel;
     QLabel *permamsg;
+    QLabel *dbramusg;
     QStatusBar *sb;
     QListView *lv;
     QToolBar *tb = nullptr;
@@ -56,6 +58,7 @@ private:
     FileScanner *fsc = nullptr;
     SettingsRegistry *sr = nullptr;
     PreferenceDialog *prefdlg = nullptr;
+    QTimer *rampupd = nullptr;
     std::unordered_set<fs::path> marked;
     int sort_role;
     Qt::SortOrder sort_order;
@@ -95,6 +98,7 @@ public Q_SLOTS:
     void show_group(size_t gid);
     void show_marked();
     void apply_prefs();
+    void update_memusg();
 Q_SIGNALS:
     void next();
     void prev();

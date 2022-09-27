@@ -187,3 +187,8 @@ bool SignatureDB::save(const fs::path &p)
 {
     return sdb->to_db_file(p);
 }
+
+int64_t SignatureDB::db_memory_usage()
+{
+    return sdb->db_memory_usage();
+}

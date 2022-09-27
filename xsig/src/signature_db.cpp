@@ -479,6 +479,13 @@ std::vector<std::pair<size_t, double>> signature_db::search_image(const fs::path
     return ret;
 }
 
+int64_t signature_db::db_memory_usage()
+{
+    sqlite3_int64 r, dummy;
+    sqlite3_status64(SQLITE_STATUS_MEMORY_USED, &r, &dummy, 0);
+    return static_cast<int64_t>(r);
+}
+
 void signature_db::ds_init()
 {
     sqlite3_exec(p->db, R"sql(

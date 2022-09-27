@@ -29,12 +29,12 @@
 #include <QAction>
 #include <QSplitter>
 #include <QString>
+#include <QTimer>
 #include <QScrollArea>
 #include <QListView>
 #include <QProgressDialog>
 #include <QStandardItemModel>
 #include <QLabel>
-#include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QStatusBar>
 #include <QPixmap>
@@ -84,6 +84,7 @@ DeduperMainWindow::DeduperMainWindow()
     this->setup_menu();
     this->update_actions();
     sb = this->statusBar();
+    sb->addPermanentWidget(dbramusg = new QLabel());
     sb->addPermanentWidget(permamsg = new QLabel());
     QLabel *opm = new QLabel();
     opm->setText("placeholder status bar text");
@@ -136,12 +137,16 @@ DeduperMainWindow::DeduperMainWindow()
     lv->setFont(fnt);
     infopanel->setFont(fnt);
     pdlb->setFont(fnt);
+    rampupd = new QTimer(this);
+    rampupd->setInterval(1000);
+    QObject::connect(rampupd, &QTimer::timeout, this, &DeduperMainWindow::update_memusg);
 
     sr = new SettingsRegistry(QStandardPaths::writableLocation(QStandardPaths::StandardLocation::ConfigLocation) + QString("/qdeduperrc"));
     int generalt = sr->register_tab("General");
     sr->register_int_option(generalt, "min_image_dim", "Minimal Dimension in Image View", 16, 4096, 64);
     sr->register_int_option(generalt, "thread_count", "Number of Threads (0 = Automatic)", 0, 4096, 0);
     sr->register_bool_option(generalt, "toolbar_text", "Show Text in Toolbar Buttons", true);
+    sr->register_bool_option(generalt, "show_memory_usage", "Show Database Engine Memory Usage", false);
     int sigt = sr->register_tab("Signature");
     sr->register_double_option(sigt, "signature/threshold", "Distance Threshold", 0, 1, 0.3);
     prefdlg = new PreferenceDialog(sr, this);
@@ -770,6 +775,19 @@ void DeduperMainWindow::apply_prefs()
     id->set_min_height(sr->get_option_int("min_image_dim"));
     tb->setToolButtonStyle(sr->get_option_bool("toolbar_text") ? Qt::ToolButtonStyle::ToolButtonTextBesideIcon
                                                                : Qt::ToolButtonStyle::ToolButtonIconOnly);
+    if (sr->get_option_bool("show_memory_usage"))
+        this->rampupd->start();
+    else
+    {
+        this->rampupd->stop();
+        this->dbramusg->setText(QString());
+    }
+}
+
+void DeduperMainWindow::update_memusg()
+{
+    if (this->sdb)
+        dbramusg->setText(QString("Database memory usage: %1").arg(QLocale::system().formattedDataSize(this->sdb->db_memory_usage())));
 }
 
 void DeduperMainWindow::sort_reassign_hotkeys()

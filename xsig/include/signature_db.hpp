@@ -94,6 +94,8 @@ public:
 
     std::vector<std::pair<size_t, double>> search_image(const fs::path &path, const populate_cfg_t &cfg, bool insert = false);
 
+    int64_t db_memory_usage();
+
     //disjoint set for keeping similar images in the same group
     //some of these probably shouldn't be public. TBD...
     void ds_init();

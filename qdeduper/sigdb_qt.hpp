@@ -51,6 +51,8 @@ public:
 
     bool load(const fs::path &p);
     bool save(const fs::path &p);
+
+    int64_t db_memory_usage();
 Q_SIGNALS:
     void image_scanned(size_t n);
 };
