@@ -76,7 +76,13 @@ void ImageItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &opt
     QPixmap pm = index.data(Qt::ItemDataRole::DecorationRole).value<QPixmap>();
     QSize imd = pm.size().scaled(imr.size(), Qt::AspectRatioMode::KeepAspectRatio);
     painter->setRenderHint(QPainter::RenderHint::SmoothPixmapTransform);
-    painter->drawPixmap(QRect(imr.topLeft(), imd), pm);
+    if (pm.size().width() > imd.width() * pm.devicePixelRatioF() || pm.size().height() > imd.height() * pm.devicePixelRatioF())
+    {
+        QPixmap pms = pm.scaled(imd * pm.devicePixelRatioF(), Qt::AspectRatioMode::IgnoreAspectRatio, Qt::TransformationMode::SmoothTransformation);
+        painter->drawPixmap(QRect(imr.topLeft(), imd), pms);
+    }
+    else
+        painter->drawPixmap(QRect(imr.topLeft(), imd), pm);
     QPoint dtopright = QRect(imr.topLeft(),imd).bottomLeft();
 
     QPoint hko = dtopright + QPoint(HKPADD, HKPADD + LINESP);
