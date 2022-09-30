@@ -48,13 +48,31 @@
 #include <QInputDialog>
 #include <QDesktopServices>
 
-using std::size_t;
 const std::vector<int> keys = {
         Qt::Key::Key_A, Qt::Key::Key_S, Qt::Key::Key_D, Qt::Key::Key_F,
         Qt::Key::Key_G, Qt::Key::Key_H, Qt::Key::Key_J, Qt::Key::Key_K,
         Qt::Key::Key_L, Qt::Key::Key_Semicolon, Qt::Key::Key_T, Qt::Key::Key_Y,
         Qt::Key::Key_U, Qt::Key::Key_I, Qt::Key::Key_O, Qt::Key::Key_P
 };
+const std::map<std::string, QKeySequence> defhk = {
+    {"00_create_db",    QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_T)},
+    {"01_load_db",      QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_O)},
+    {"02_save_db",      QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_W)},
+    {"03_save_list",    QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_E)},
+    {"04_load_list",    QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_R)},
+    {"05_search_image", QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_Slash)},
+    {"06_preferences",  QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_P)},
+    {"07_exit",         QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_Q)},
+    {"08_next_group",   QKeySequence(Qt::Key::Key_M)},
+    {"09_prev_group",   QKeySequence(Qt::Key::Key_Z)},
+    {"10_skip_group",   QKeySequence(Qt::Key::Key_B)},
+    {"11_single_mode_toggle", QKeySequence()},
+    {"12_mark_all",     QKeySequence(Qt::Key::Key_X)},
+    {"13_mark_all_dir", QKeySequence()},
+    {"14_mark_all_dir_rec", QKeySequence()},
+    {"15_view_marked",  QKeySequence()},
+};
+
 
 QString fsstr_to_qstring(const fs::path::string_type &s)
 {
@@ -149,9 +167,16 @@ DeduperMainWindow::DeduperMainWindow()
     sr->register_bool_option(generalt, "show_memory_usage", "Show Database Engine Memory Usage", false);
     int sigt = sr->register_tab("Signature");
     sr->register_double_option(sigt, "signature/threshold", "Distance Threshold", 0, 1, 0.3);
+    int hkt = sr->register_tab("Shortcuts");
+    for (auto &hkp : defhk)
+    {
+        std::string hkn = hkp.first.substr(3);
+        sr->register_keyseq_option(hkt, "hotkey/" + hkn, QString(), hkp.second);
+    }
     prefdlg = new PreferenceDialog(sr, this);
     prefdlg->setModal(true);
     prefdlg->close();
+    prefdlg->set_hkactions(hkt, defhk, menuact);
     QObject::connect(menuact["preferences"], &QAction::triggered, prefdlg, &PreferenceDialog::open);
     QObject::connect(prefdlg, &PreferenceDialog::accepted, this, &DeduperMainWindow::apply_prefs);
     apply_prefs();
@@ -783,6 +808,12 @@ void DeduperMainWindow::apply_prefs()
     {
         this->rampupd->stop();
         this->dbramusg->setText(QString());
+    }
+    for (auto &hkp : defhk)
+    {
+        std::string hkn = hkp.first.substr(3);
+        QKeySequence ks = sr->get_option_keyseq("hotkey/" + hkn);
+        menuact[hkn]->setShortcut(ks);
     }
 }
 

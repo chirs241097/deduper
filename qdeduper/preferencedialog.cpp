@@ -1,3 +1,6 @@
+#include <functional>
+
+#include <QDebug>
 #include <QLabel>
 #include <QTabWidget>
 #include <QGridLayout>
@@ -6,6 +9,10 @@
 #include <QDialogButtonBox>
 #include <QCheckBox>
 #include <QVBoxLayout>
+#include <QAction>
+#include <QTableView>
+#include <QStandardItemModel>
+#include <QKeySequenceEdit>
 
 #include "preferencedialog.hpp"
 #include "settings.hpp"
@@ -99,6 +106,19 @@ void PreferenceDialog::setup_widgets()
     }
 }
 
+void PreferenceDialog::set_hkactions(int tab, std::map<std::string, QKeySequence> defmap, std::map<std::string, QAction*> actmap)
+{
+    this->defmap = defmap;
+    this->actmap = actmap;
+    this->hktv = new QTableView();
+    this->hkim = new QStandardItemModel();
+    this->tabs[tab]->addWidget(hktv, 0, 0);
+    this->hktv->setModel(hkim);
+    this->hktv->setSortingEnabled(false);
+    this->hktv->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
+    this->hktv->setItemDelegateForColumn(1, new ShortcutEditorDelegate);
+}
+
 void PreferenceDialog::load_widget_status()
 {
     for (auto &k : sr->klist)
@@ -132,6 +152,24 @@ void PreferenceDialog::load_widget_status()
             break;
         }
     }
+    this->hkim->clear();
+    this->hkim->setHorizontalHeaderLabels({"Menu Item", "Hotkey"});
+    for (auto &hkp : this->defmap)
+    {
+        std::string actn = hkp.first.substr(3);
+        QKeySequence ks = sr->get_option_keyseq("hotkey/" + actn);
+        if (this->actmap.find(actn) == this->actmap.end())
+            continue;
+        QAction *act = this->actmap[actn];
+        QStandardItem *itma = new QStandardItem(act->text());
+        QStandardItem *itmk = new QStandardItem(act->shortcut().toString());
+        itma->setIcon(act->icon());
+        itma->setEditable(false);
+        itma->setData(QString::fromStdString(actn), Qt::ItemDataRole::UserRole);
+        itmk->setData(QVariant::fromValue<QKeySequence>(ks), Qt::ItemDataRole::UserRole);
+        this->hkim->appendRow({itma, itmk});
+    }
+    this->hktv->resizeColumnsToContents();
 }
 
 void PreferenceDialog::save_widget_status()
@@ -167,4 +205,34 @@ void PreferenceDialog::save_widget_status()
             break;
         }
     }
+    for (int i = 0; i < hkim->rowCount(); ++i)
+    {
+        std::string actn = hkim->item(i, 0)->data(Qt::ItemDataRole::UserRole).toString().toStdString();
+        QKeySequence ks = hkim->item(i, 1)->data(Qt::ItemDataRole::UserRole).value<QKeySequence>();
+        sr->set_option_keyseq("hotkey/" + actn, ks);
+    }
+}
+QWidget* ShortcutEditorDelegate::createEditor(QWidget *parent, const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+    Q_UNUSED(option);
+    Q_UNUSED(index);
+    QKeySequenceEdit *kse = new QKeySequenceEdit(parent);
+    QObject::connect(kse, &QKeySequenceEdit::editingFinished, [this, kse] {
+        Q_EMIT const_cast<ShortcutEditorDelegate*>(this)->commitData(kse);
+        Q_EMIT const_cast<ShortcutEditorDelegate*>(this)->closeEditor(kse);
+    });
+    return kse;
+}
+
+void ShortcutEditorDelegate::setEditorData(QWidget *editor, const QModelIndex &index) const
+{
+    QKeySequenceEdit *kse = qobject_cast<QKeySequenceEdit*>(editor);
+    kse->setKeySequence(index.data(Qt::ItemDataRole::UserRole).value<QKeySequence>());
+}
+
+void ShortcutEditorDelegate::setModelData(QWidget *editor, QAbstractItemModel *model, const QModelIndex &index) const
+{
+    QKeySequenceEdit *kse = qobject_cast<QKeySequenceEdit*>(editor);
+    model->setData(index, QVariant::fromValue<QKeySequence>(kse->keySequence()), Qt::ItemDataRole::UserRole);
+    model->setData(index, kse->keySequence().toString(), Qt::ItemDataRole::DisplayRole);
 }
