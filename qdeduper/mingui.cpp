@@ -318,7 +318,7 @@ void DeduperMainWindow::setup_menu()
     file->addSeparator();
     QAction *search_img = file->addAction("Search for Image...");
     QObject::connect(search_img, &QAction::triggered, [this] {
-        QString fpath = QFileDialog::getOpenFileName(this, "Select Image", QString(), "Image file");
+        QString fpath = QFileDialog::getOpenFileName(this, "Select Image", QString(), "Image file (*.*)");
         if (fpath.isNull()) return;
         searched_image = qstring_to_path(fpath);
         search_image(searched_image);
