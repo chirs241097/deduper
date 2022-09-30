@@ -304,16 +304,12 @@ void DeduperMainWindow::setup_menu()
     file->addSeparator();
 
     QAction *savelist = file->addAction("Export Marked Images List...");
-    savelist->setShortcut(QKeySequence(Qt::Modifier::SHIFT | Qt::Key::Key_Return));
     QObject::connect(savelist, &QAction::triggered, [this]{Q_EMIT this->save_list();});
     menuact["save_list"] = savelist;
-    this->addAction(savelist);
 
     QAction *loadlist = file->addAction("Import Marked Images List...");
-    loadlist->setShortcut(QKeySequence(Qt::Key::Key_N));
     QObject::connect(loadlist, &QAction::triggered, [this]{Q_EMIT this->load_list();});
     menuact["load_list"] = loadlist;
-    this->addAction(loadlist);
 
     file->addSeparator();
     QAction *search_img = file->addAction("Search for Image...");
@@ -336,29 +332,24 @@ void DeduperMainWindow::setup_menu()
     QAction *nxtgrp = view->addAction("Next Group");
     nxtgrp->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowRight));
     menuact["next_group"] = nxtgrp;
-    nxtgrp->setShortcut(QKeySequence(Qt::Key::Key_M));
     QObject::connect(nxtgrp, &QAction::triggered, [this] {
         if (this->vm == ViewMode::view_searchresult) { this->show_group(curgroup); return; }
         if (this->sdb && curgroup + 1 < this->sdb->num_groups())
             this->show_group(++curgroup);
     });
-    this->addAction(nxtgrp);
 
     QAction *prvgrp = view->addAction("Previous Group");
     prvgrp->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowLeft));
     menuact["prev_group"] = prvgrp;
-    prvgrp->setShortcut(QKeySequence(Qt::Key::Key_Z));
     QObject::connect(prvgrp, &QAction::triggered, [this] {
         if (this->vm == ViewMode::view_searchresult) { this->show_group(curgroup); return; }
         if (this->sdb && curgroup > 0)
             this->show_group(--curgroup);
     });
-    this->addAction(prvgrp);
 
     QAction *skip = view->addAction("Skip to Group...");
     skip->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowUp));
     menuact["skip_group"] = skip;
-    skip->setShortcut(QKeySequence(Qt::Key::Key_B));
     QObject::connect(skip, &QAction::triggered, [this] {
         if (!this->sdb) return;
         bool ok = false;
@@ -368,7 +359,6 @@ void DeduperMainWindow::setup_menu()
                                      1, sdb->num_groups(), 1, &ok);
         if (ok) this->show_group((size_t) g - 1);
     });
-    this->addAction(skip);
 
     view->addSeparator();
     QAction *singlemode = view->addAction("Single Item Mode");
@@ -452,16 +442,12 @@ void DeduperMainWindow::setup_menu()
     sordg->setExclusionPolicy(QActionGroup::ExclusionPolicy::Exclusive);
 
     QAction *mall = mark->addAction("Mark All");
-    mall->setShortcut(QKeySequence(Qt::Key::Key_X));
     QObject::connect(mall, &QAction::triggered, [this]{this->mark_all();});
     menuact["mark_all"] = mall;
-    this->addAction(mall);
 
     QAction *mnone = mark->addAction("Mark None");
-    mnone->setShortcut(QKeySequence(Qt::Key::Key_C));
     QObject::connect(mnone, &QAction::triggered, [this]{this->mark_none();});
     menuact["mark_none"] = mnone;
-    this->addAction(mnone);
 
     QAction *madir = mark->addAction("Mark All within directory...");
     QObject::connect(madir, &QAction::triggered, [this] {
@@ -523,6 +509,9 @@ void DeduperMainWindow::setup_menu()
     tbsortb->setPopupMode(QToolButton::ToolButtonPopupMode::InstantPopup);
     tbsorta->setMenu(tbsort);
     tb->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextBesideIcon);
+
+    for (auto &ap : menuact)
+        this->addAction(ap.second);
 }
 void DeduperMainWindow::update_actions()
 {
