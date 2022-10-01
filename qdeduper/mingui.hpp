@@ -38,6 +38,16 @@ enum ViewMode
     view_marked
 };
 
+enum ItemActionType
+{
+    mark_toggle,
+    mark_all_except,
+    show_only,
+    open_with_system_viewer,
+    open_containing_folder,
+    ACTION_MAX
+};
+
 class DeduperMainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -73,6 +83,9 @@ private:
     void mark_all();
     void mark_none(bool msg = true);
     void marked_update(bool update_msg = true);
+    void show_only(size_t x);
+    void open_image(size_t x);
+    void locate_image(size_t x);
     fs::path::string_type common_prefix(const std::vector<fs::path> &fns);
     bool modified_check(bool quitting = true);
 protected:

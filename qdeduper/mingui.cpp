@@ -1,4 +1,5 @@
 #include "mingui.hpp"
+#include "utilities.hpp"
 #include "imageitem.hpp"
 #include "filescanner.hpp"
 #include "pathchooser.hpp"
@@ -6,6 +7,7 @@
 #include "settings.hpp"
 #include "preferencedialog.hpp"
 
+#include <climits>
 #include <chrono>
 #include <fstream>
 #include <thread>
@@ -48,7 +50,7 @@
 #include <QInputDialog>
 #include <QDesktopServices>
 
-const std::vector<int> keys = {
+const std::vector<int> iadefkeys = {
         Qt::Key::Key_A, Qt::Key::Key_S, Qt::Key::Key_D, Qt::Key::Key_F,
         Qt::Key::Key_G, Qt::Key::Key_H, Qt::Key::Key_J, Qt::Key::Key_K,
         Qt::Key::Key_L, Qt::Key::Key_Semicolon, Qt::Key::Key_T, Qt::Key::Key_Y,
@@ -68,29 +70,18 @@ const std::map<std::string, QKeySequence> defhk = {
     {"10_skip_group",   QKeySequence(Qt::Key::Key_B)},
     {"11_single_mode_toggle", QKeySequence()},
     {"12_mark_all",     QKeySequence(Qt::Key::Key_X)},
-    {"13_mark_all_dir", QKeySequence()},
-    {"14_mark_all_dir_rec", QKeySequence()},
-    {"15_view_marked",  QKeySequence()},
+    {"13_mark_none",     QKeySequence(Qt::Key::Key_C)},
+    {"14_mark_all_dir", QKeySequence()},
+    {"15_mark_all_dir_rec", QKeySequence()},
+    {"16_view_marked",  QKeySequence()},
 };
-
-
-QString fsstr_to_qstring(const fs::path::string_type &s)
-{
-#if PATH_VALSIZE == 2 //the degenerate platform
-    return QString::fromStdWString(s);
-#else
-    return QString::fromStdString(s);
-#endif
-}
-
-fs::path qstring_to_path(const QString &s)
-{
-#if PATH_VALSIZE == 2 //the degenerate platform
-    return fs::path(s.toStdWString());
-#else
-    return fs::path(s.toStdString());
-#endif
-}
+const std::vector<int> iadefmo = {
+    0,                                          //mark_toggle
+    Qt::Modifier::SHIFT,                        //mark_all_except
+    Qt::Modifier::CTRL | Qt::Modifier::SHIFT,   //show_only
+    Qt::Modifier::ALT | Qt::Modifier::SHIFT,    //open_with_system_viewer
+    INT_MAX                                     //open_containing_folder
+};
 
 Q_DECLARE_METATYPE(fs::path)
 
@@ -99,8 +90,6 @@ DeduperMainWindow::DeduperMainWindow()
     qRegisterMetaType<fs::path>();
     qApp->setWindowIcon(QIcon(":/img/deduper.png"));
     this->setWindowTitle("QDeduper");
-    this->setup_menu();
-    this->update_actions();
     sb = this->statusBar();
     sb->addPermanentWidget(dbramusg = new QLabel());
     sb->addPermanentWidget(permamsg = new QLabel());
@@ -157,7 +146,10 @@ DeduperMainWindow::DeduperMainWindow()
     pdlb->setFont(fnt);
     rampupd = new QTimer(this);
     rampupd->setInterval(1000);
+    rampupd->stop();
     QObject::connect(rampupd, &QTimer::timeout, this, &DeduperMainWindow::update_memusg);
+    this->setup_menu();
+    this->update_actions();
 
     sr = new SettingsRegistry(QStandardPaths::writableLocation(QStandardPaths::StandardLocation::ConfigLocation) + QString("/qdeduperrc"));
     int generalt = sr->register_tab("General");
@@ -173,6 +165,11 @@ DeduperMainWindow::DeduperMainWindow()
         std::string hkn = hkp.first.substr(3);
         sr->register_keyseq_option(hkt, "hotkey/" + hkn, QString(), hkp.second);
     }
+    for (int i = 0; i < ItemActionType::ACTION_MAX; ++i)
+    {
+        std::string iakt = "hotkey/item_action_mod_" + std::to_string(i);
+        sr->register_int_option(hkt, iakt, QString(), INT_MIN, INT_MAX, 0);
+    }
     prefdlg = new PreferenceDialog(sr, this);
     prefdlg->setModal(true);
     prefdlg->close();
@@ -181,32 +178,27 @@ DeduperMainWindow::DeduperMainWindow()
     QObject::connect(prefdlg, &PreferenceDialog::accepted, this, &DeduperMainWindow::apply_prefs);
     apply_prefs();
 
-    for (size_t i = 0; i < keys.size(); ++i)
+    for (size_t i = 0; i < iadefkeys.size(); ++i)
     {
-        auto &k = keys[i];
-        QAction *a = new QAction();
-        a->setShortcut(QKeySequence(k));
-        QObject::connect(a, &QAction::triggered, std::bind(&DeduperMainWindow::mark_toggle, this, i));
-        selhk.push_back(a);
+        QAction *ma = new QAction();
+        QObject::connect(ma, &QAction::triggered, std::bind(&DeduperMainWindow::mark_toggle, this, i));
+        selhk.push_back(ma);
+
         QAction *sa = new QAction();
-        sa->setShortcut(QKeySequence(Qt::Modifier::SHIFT | k));
         QObject::connect(sa, &QAction::triggered, std::bind(&DeduperMainWindow::mark_all_but, this, i));
         selhk.push_back(sa);
+
         QAction *ca = new QAction();
-        ca->setShortcut(QKeySequence(Qt::Modifier::CTRL | k));
-        QObject::connect(ca, &QAction::triggered, [this, i] {
-            if (i >= im->rowCount()) return;
-            if (id->is_single_item_mode())
-                id->set_single_item_mode(false);
-            else
-            {
-                id->set_single_item_mode(true);
-                QTimer::singleShot(5, [this, i] {
-                lv->scrollTo(im->index(i, 0), QAbstractItemView::ScrollHint::PositionAtTop);});
-            }
-            menuact["single_mode_toggle"]->setChecked(id->is_single_item_mode());
-        });
+        QObject::connect(ca, &QAction::triggered, std::bind(&DeduperMainWindow::show_only, this, i));
         selhk.push_back(ca);
+
+        QAction *oa = new QAction();
+        QObject::connect(oa, &QAction::triggered, std::bind(&DeduperMainWindow::open_image, this, i));
+        selhk.push_back(oa);
+
+        QAction *la = new QAction();
+        QObject::connect(la, &QAction::triggered, std::bind(&DeduperMainWindow::locate_image, this, i));
+        selhk.push_back(la);
     }
     this->addActions(selhk);
 
@@ -225,7 +217,7 @@ DeduperMainWindow::DeduperMainWindow()
         else cs = Qt::CheckState::Checked;
         this->im->setData(i, cs, Qt::ItemDataRole::CheckStateRole);
         this->marked_update();
-        QDesktopServices::openUrl(QUrl::fromLocalFile(i.data(ImageItem::ImageItemRoles::path_role).toString()));
+        open_image(i.row());
     });
     l->addWidget(lv);
     l->addWidget(infopanel);
@@ -271,7 +263,7 @@ void DeduperMainWindow::setup_menu()
             QPushButton *cancelbtn = pd->findChild<QPushButton*>();
             if (Q_LIKELY(cancelbtn)) cancelbtn->setVisible(false);
             auto f = QtConcurrent::run([this, dbpath]() -> bool {
-                return this->sdb->load(qstring_to_path(dbpath));
+                return this->sdb->load(utilities::qstring_to_path(dbpath));
             });
             QFutureWatcher<bool> *fw = new QFutureWatcher<bool>(this);
             fw->setFuture(f);
@@ -298,7 +290,7 @@ void DeduperMainWindow::setup_menu()
     QObject::connect(save_db, &QAction::triggered, [this] {
         QString dbpath = QFileDialog::getSaveFileName(this, "Save Database", QString(), "Signature database (*.sigdb)");
         if (!dbpath.isNull() && this->sdb)
-            this->sdb->save(qstring_to_path(dbpath));
+            this->sdb->save(utilities::qstring_to_path(dbpath));
     });
     menuact["save_db"] = save_db;
     file->addSeparator();
@@ -316,7 +308,7 @@ void DeduperMainWindow::setup_menu()
     QObject::connect(search_img, &QAction::triggered, [this] {
         QString fpath = QFileDialog::getOpenFileName(this, "Select Image", QString(), "Image file (*.*)");
         if (fpath.isNull()) return;
-        searched_image = qstring_to_path(fpath);
+        searched_image = utilities::qstring_to_path(fpath);
         search_image(searched_image);
     });
     menuact["search_image"] = search_img;
@@ -453,7 +445,7 @@ void DeduperMainWindow::setup_menu()
     QObject::connect(madir, &QAction::triggered, [this] {
         QString s = QFileDialog::getExistingDirectory(this, "Open");
         if (s.isNull() || s.isEmpty()) return;
-        fs::path p = qstring_to_path(s);
+        fs::path p = utilities::qstring_to_path(s);
         for (auto &id : this->sdb->get_image_ids())
         {
             fs::path fp = this->sdb->get_image_path(id);
@@ -463,7 +455,7 @@ void DeduperMainWindow::setup_menu()
         for (int i = 0; i < im->rowCount(); ++i)
         {
             ImageItem *itm = static_cast<ImageItem*>(im->item(i));
-            fs::path fp = qstring_to_path(itm->path());
+            fs::path fp = utilities::qstring_to_path(itm->path());
             itm->setCheckState(marked.find(fp) == marked.end() ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
         }
     });
@@ -472,17 +464,17 @@ void DeduperMainWindow::setup_menu()
     QObject::connect(madirr, &QAction::triggered, [this] {
         QString s = QFileDialog::getExistingDirectory(this, "Open");
         if (s.isNull() || s.isEmpty()) return;
-        fs::path p = qstring_to_path(s);
+        fs::path p = utilities::qstring_to_path(s);
         for (auto &id : this->sdb->get_image_ids())
         {
             fs::path fp = this->sdb->get_image_path(id);
-            if (!fsstr_to_qstring(fp.lexically_relative(p)).startsWith("../"))
+            if (!utilities::fspath_to_qstring(fp.lexically_relative(p)).startsWith("../"))
                 this->marked.insert(fp);
         }
         for (int i = 0; i < im->rowCount(); ++i)
         {
             ImageItem *itm = static_cast<ImageItem*>(im->item(i));
-            fs::path fp = qstring_to_path(itm->path());
+            fs::path fp = utilities::qstring_to_path(itm->path());
             itm->setCheckState(marked.find(fp) == marked.end() ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
         }
     });
@@ -498,6 +490,36 @@ void DeduperMainWindow::setup_menu()
     QObject::connect(about, &QAction::triggered, [this]{QMessageBox::about(this, "About Deduper", "Deduper\nFind similar images on your local filesystem.\n\n0.0.0\nChris Xiong 2022\nMPL-2.0");});
     QAction *aboutqt = help->addAction("About Qt");
     QObject::connect(aboutqt, &QAction::triggered, [this]{QMessageBox::aboutQt(this);});
+
+    lv->setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
+    QObject::connect(lv, &QWidget::customContextMenuRequested, [this] (const QPoint &pos) {
+        const QModelIndex &idx = lv->indexAt(pos);
+        if (!idx.isValid()) return;
+        Qt::CheckState cks = idx.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
+        QMenu *cm = new QMenu(this);
+        QAction *ma = cm->addAction(cks == Qt::CheckState::Checked ? "Unmark" : "Mark");
+        QObject::connect(ma, &QAction::triggered, std::bind(&DeduperMainWindow::mark_toggle, this, idx.row()));
+        selhk.push_back(ma);
+
+        QAction *sa = cm->addAction("Mark All Except");
+        QObject::connect(sa, &QAction::triggered, std::bind(&DeduperMainWindow::mark_all_but, this, idx.row()));
+        selhk.push_back(sa);
+
+        QAction *ca = cm->addAction(id->is_single_item_mode() ? "Restore" : "Maximize");
+        QObject::connect(ca, &QAction::triggered, std::bind(&DeduperMainWindow::show_only, this, idx.row()));
+        selhk.push_back(ca);
+
+        QAction *oa = cm->addAction("Open Image");
+        QObject::connect(oa, &QAction::triggered, std::bind(&DeduperMainWindow::open_image, this, idx.row()));
+        selhk.push_back(oa);
+
+        QAction *la = cm->addAction("Open Containing Folder");
+        QObject::connect(la, &QAction::triggered, std::bind(&DeduperMainWindow::locate_image, this, idx.row()));
+        selhk.push_back(la);
+
+        QObject::connect(cm, &QMenu::aboutToHide, [cm] {cm->deleteLater();});
+        cm->popup(this->lv->mapToGlobal(pos));
+    });
 
     tb = new QToolBar(this);
     this->addToolBar(tb);
@@ -571,7 +593,7 @@ void DeduperMainWindow::show_images(const std::vector<size_t> &ids)
     for (auto &id : ids) fns.push_back(this->sdb->get_image_path(id));
     fs::path::string_type common_pfx = common_prefix(fns);
     size_t idx = 0;
-    if (ids.size() > keys.size() && !nohotkeywarn && this->vm != ViewMode::view_marked)
+    if (ids.size() > iadefkeys.size() && !nohotkeywarn && this->vm != ViewMode::view_marked)
         nohotkeywarn = QMessageBox::StandardButton::Ignore ==
                        QMessageBox::warning(this,
                              "Too many duplicates",
@@ -581,9 +603,9 @@ void DeduperMainWindow::show_images(const std::vector<size_t> &ids)
     for (auto &id : ids)
     {
         fs::path &f = fns[idx];
-        ImageItem *imitm = new ImageItem(fsstr_to_qstring(f.native()),
-                                         fsstr_to_qstring(f.native().substr(common_pfx.length())),
-                                         idx < keys.size() ? keys[idx] : QKeySequence(),
+        ImageItem *imitm = new ImageItem(utilities::fspath_to_qstring(f),
+                                         utilities::fsstr_to_qstring(f.native().substr(common_pfx.length())),
+                                         idx < iadefkeys.size() ? iadefkeys[idx] : QKeySequence(),
                                          id, idx,
                                          lv->devicePixelRatioF());
         imitm->setCheckState(marked.find(f) == marked.end() ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
@@ -624,9 +646,9 @@ void DeduperMainWindow::save_list()
 {
     QString fn = QFileDialog::getSaveFileName(this, "Save list", QString(), "File List (*.txt)");
 #if PATH_VALSIZE == 2
-    std::wfstream fst(qstring_to_path(fn), std::ios_base::out);
+    std::wfstream fst(utilities::qstring_to_path(fn), std::ios_base::out);
 #else
-    std::fstream fst(qstring_to_path(fn), std::ios_base::out);
+    std::fstream fst(utilities::qstring_to_path(fn), std::ios_base::out);
 #endif
     if (fst.fail()) return;
     for (auto &x : this->marked)
@@ -639,9 +661,9 @@ void DeduperMainWindow::load_list()
 {
     QString fn = QFileDialog::getOpenFileName(this, "Load list", QString(), "File List (*.txt)");
 #if PATH_VALSIZE == 2
-    std::wfstream fst(qstring_to_path(fn), std::ios_base::in);
+    std::wfstream fst(utilities::qstring_to_path(fn), std::ios_base::in);
 #else
-    std::fstream fst(qstring_to_path(fn), std::ios_base::in);
+    std::fstream fst(utilities::qstring_to_path(fn), std::ios_base::in);
 #endif
     if (fst.fail()) return;
     this->marked.clear();
@@ -655,7 +677,7 @@ void DeduperMainWindow::load_list()
     fst.close();
     for (int i = 0; i < im->rowCount(); ++i)
     {
-        fs::path p = qstring_to_path(static_cast<ImageItem*>(im->item(i))->path());
+        fs::path p = utilities::qstring_to_path(static_cast<ImageItem*>(im->item(i))->path());
         im->item(i)->setCheckState(marked.find(p) != marked.end() ? Qt::CheckState::Checked : Qt::CheckState::Unchecked);
     }
     marked_update();
@@ -695,7 +717,7 @@ void DeduperMainWindow::scan_dirs(std::vector<std::pair<fs::path, bool>> paths)
             if (std::chrono::steady_clock::now() - lt > 100ms)
             {
                 lt = std::chrono::steady_clock::now();
-                QString etxt = this->fontMetrics().elidedText(QString("Looking for files to scan: %1").arg(fsstr_to_qstring(p)),
+                QString etxt = this->fontMetrics().elidedText(QString("Looking for files to scan: %1").arg(utilities::fspath_to_qstring(p)),
                                                               Qt::TextElideMode::ElideMiddle,
                                                               475);
                 this->pd->setLabelText(etxt);
@@ -817,7 +839,7 @@ void DeduperMainWindow::sort_reassign_hotkeys()
     im->setSortRole(this->sort_role);
     im->sort(0, this->sort_order);
     for (int i = 0; i < im->rowCount(); ++i)
-        static_cast<ImageItem*>(im->item(i))->set_hotkey(i < keys.size() ? keys[i] : QKeySequence());
+        static_cast<ImageItem*>(im->item(i))->set_hotkey(i < iadefkeys.size() ? iadefkeys[i] : QKeySequence());
 }
 
 void DeduperMainWindow::mark_toggle(size_t x)
@@ -885,7 +907,7 @@ void DeduperMainWindow::marked_update(bool update_msg)
     size_t m = 0;
     for (int i = 0; i < im->rowCount(); ++i)
     {
-        fs::path p = qstring_to_path(static_cast<ImageItem*>(im->item(i))->path());
+        fs::path p = utilities::qstring_to_path(static_cast<ImageItem*>(im->item(i))->path());
         if (im->item(i)->checkState() == Qt::CheckState::Checked)
         {
             marked.insert(p);
@@ -897,6 +919,32 @@ void DeduperMainWindow::marked_update(bool update_msg)
     }
     if (update_msg)
     sb->showMessage(QString("%1 of %2 marked for deletion").arg(m).arg(im->rowCount()), 1000);
+}
+
+void DeduperMainWindow::show_only(size_t x)
+{
+    if (x >= im->rowCount()) return;
+    if (id->is_single_item_mode())
+        id->set_single_item_mode(false);
+    else
+    {
+        id->set_single_item_mode(true);
+        QTimer::singleShot(5, [this, x] {
+        lv->scrollTo(im->index(x, 0), QAbstractItemView::ScrollHint::PositionAtTop);});
+    }
+    menuact["single_mode_toggle"]->setChecked(id->is_single_item_mode());
+}
+
+void DeduperMainWindow::open_image(size_t x)
+{
+    if (x >= im->rowCount()) return;
+    QDesktopServices::openUrl(QUrl::fromLocalFile(im->item(x, 0)->data(ImageItem::ImageItemRoles::path_role).toString()));
+}
+
+void DeduperMainWindow::locate_image(size_t x)
+{
+    if (x >= im->rowCount()) return;
+    utilities::open_containing_folder(utilities::qstring_to_path(im->item(x, 0)->data(ImageItem::ImageItemRoles::path_role).toString()));
 }
 
 fs::path::string_type DeduperMainWindow::common_prefix(const std::vector<fs::path> &fns)
