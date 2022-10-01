@@ -361,12 +361,13 @@ void DeduperMainWindow::setup_menu()
     });
 
     view->addSeparator();
-    QMenu *sort = view->addMenu("Sort by");
-    QMenu *tbsort = new QMenu(this);
-    QAction *sfsz = new QAction("File size");
-    QAction *simd = new QAction("Image dimension");
-    QAction *sfpt = new QAction("File path");
-    QAction *snon = new QAction("Default");
+    QAction *sort = view->addAction("Sort by");
+    QMenu *sortm = new QMenu(this);
+    sort->setMenu(sortm);
+    QAction *sfsz = sortm->addAction("File size");
+    QAction *simd = sortm->addAction("Image dimension");
+    QAction *sfpt = sortm->addAction("File path");
+    QAction *snon = sortm->addAction("Default");
     QList<QAction*> skeya = {sfsz, simd, sfpt, snon};
     QList<ImageItem::ImageItemRoles> skeyr = {
         ImageItem::ImageItemRoles::file_size_role,
@@ -378,8 +379,7 @@ void DeduperMainWindow::setup_menu()
     for (int i = 0; i < skeya.size(); ++i)
     {
         auto a = skeya[i];
-        sort->addAction(a);
-        tbsort->addAction(a);
+        sortm->addAction(a);
         skeyg->addAction(a);
         a->setCheckable(true);
         ImageItem::ImageItemRoles sr = skeyr[i];
@@ -389,10 +389,10 @@ void DeduperMainWindow::setup_menu()
             {
                 case ViewMode::view_normal:
                     this->show_group(this->curgroup);
-                    break;
+                break;
                 case ViewMode::view_searchresult:
                     this->search_image(this->searched_image);
-                    break;
+                break;
                 case ViewMode::view_marked:
                     this->show_marked();
             }
@@ -400,8 +400,7 @@ void DeduperMainWindow::setup_menu()
     }
     snon->setChecked(true);
     skeyg->setExclusionPolicy(QActionGroup::ExclusionPolicy::Exclusive);
-    sort->addSeparator();
-    tbsort->addSeparator();
+    sortm->addSeparator();
     QAction *sasc = new QAction("Ascending");
     QAction *sdec = new QAction("Descending");
     QActionGroup *sordg = new QActionGroup(sort);
@@ -410,8 +409,7 @@ void DeduperMainWindow::setup_menu()
     for (int i = 0; i < sorda.size(); ++i)
     {
         auto a = sorda[i];
-        sort->addAction(a);
-        tbsort->addAction(a);
+        sortm->addAction(a);
         sordg->addAction(a);
         a->setCheckable(true);
         Qt::SortOrder so = sordv[i];
@@ -526,10 +524,9 @@ void DeduperMainWindow::setup_menu()
     tb->addAction(prvgrp);
     tb->addAction(nxtgrp);
     tb->addAction(skip);
-    QAction *tbsorta = tb->addAction("Sort by");
-    QToolButton *tbsortb = qobject_cast<QToolButton*>(tb->widgetForAction(tbsorta));
+    tb->addAction(sort);
+    QToolButton *tbsortb = qobject_cast<QToolButton*>(tb->widgetForAction(sort));
     tbsortb->setPopupMode(QToolButton::ToolButtonPopupMode::InstantPopup);
-    tbsorta->setMenu(tbsort);
     tb->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextBesideIcon);
 
     for (auto &ap : menuact)
