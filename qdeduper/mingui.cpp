@@ -150,34 +150,6 @@ DeduperMainWindow::DeduperMainWindow()
     QObject::connect(rampupd, &QTimer::timeout, this, &DeduperMainWindow::update_memusg);
     this->setup_menu();
     this->update_actions();
-
-    sr = new SettingsRegistry(QStandardPaths::writableLocation(QStandardPaths::StandardLocation::ConfigLocation) + QString("/qdeduperrc"));
-    int generalt = sr->register_tab("General");
-    sr->register_int_option(generalt, "min_image_dim", "Minimal Dimension in Image View", 16, 4096, 64);
-    sr->register_int_option(generalt, "thread_count", "Number of Threads (0 = Automatic)", 0, 4096, 0);
-    sr->register_bool_option(generalt, "toolbar_text", "Show Text in Toolbar Buttons", true);
-    sr->register_bool_option(generalt, "show_memory_usage", "Show Database Engine Memory Usage", false);
-    int sigt = sr->register_tab("Signature");
-    sr->register_double_option(sigt, "signature/threshold", "Distance Threshold", 0, 1, 0.3);
-    int hkt = sr->register_tab("Shortcuts");
-    for (auto &hkp : defhk)
-    {
-        std::string hkn = hkp.first.substr(3);
-        sr->register_keyseq_option(hkt, "hotkey/" + hkn, QString(), hkp.second);
-    }
-    for (int i = 0; i < ItemActionType::ACTION_MAX; ++i)
-    {
-        std::string iakt = "hotkey/item_action_mod_" + std::to_string(i);
-        sr->register_int_option(hkt, iakt, QString(), INT_MIN, INT_MAX, 0);
-    }
-    prefdlg = new PreferenceDialog(sr, this);
-    prefdlg->setModal(true);
-    prefdlg->close();
-    prefdlg->set_hkactions(hkt, defhk, menuact);
-    QObject::connect(menuact["preferences"], &QAction::triggered, prefdlg, &PreferenceDialog::open);
-    QObject::connect(prefdlg, &PreferenceDialog::accepted, this, &DeduperMainWindow::apply_prefs);
-    apply_prefs();
-
     for (size_t i = 0; i < iadefkeys.size(); ++i)
     {
         QAction *ma = new QAction();
@@ -201,6 +173,38 @@ DeduperMainWindow::DeduperMainWindow()
         selhk.push_back(la);
     }
     this->addActions(selhk);
+
+    sr = new SettingsRegistry(QStandardPaths::writableLocation(QStandardPaths::StandardLocation::ConfigLocation) + QString("/qdeduperrc"));
+    int generalt = sr->register_tab("General");
+    sr->register_int_option(generalt, "min_image_dim", "Minimal Dimension in Image View", 16, 4096, 64);
+    sr->register_int_option(generalt, "thread_count", "Number of Threads (0 = Automatic)", 0, 4096, 0);
+    sr->register_bool_option(generalt, "toolbar_text", "Show Text in Toolbar Buttons", true);
+    sr->register_bool_option(generalt, "show_memory_usage", "Show Database Engine Memory Usage", false);
+    int sigt = sr->register_tab("Signature");
+    sr->register_double_option(sigt, "signature/threshold", "Distance Threshold", 0, 1, 0.3);
+    int hkt = sr->register_tab("Shortcuts");
+    for (auto &hkp : defhk)
+    {
+        std::string hkn = hkp.first.substr(3);
+        sr->register_keyseq_option(hkt, "hotkey/" + hkn, QString(), hkp.second);
+    }
+    for (size_t i = 0; i < iadefmo.size(); ++i)
+    {
+        std::string iamt = "hotkey/item_action_mod_" + std::to_string(i);
+        sr->register_int_option(hkt, iamt, QString(), INT_MIN, INT_MAX, iadefmo[i]);
+    }
+    for (size_t i = 0; i < iadefkeys.size(); ++i)
+    {
+        std::string iakt = "hotkey/item_" + std::to_string(i) + "_action_key";
+        sr->register_int_option(hkt, iakt, QString(), INT_MIN, INT_MAX, iadefkeys[i]);
+    }
+    prefdlg = new PreferenceDialog(sr, this);
+    prefdlg->setModal(true);
+    prefdlg->close();
+    prefdlg->set_hkactions(hkt, defhk, menuact);
+    QObject::connect(menuact["preferences"], &QAction::triggered, prefdlg, &PreferenceDialog::open);
+    QObject::connect(prefdlg, &PreferenceDialog::accepted, this, &DeduperMainWindow::apply_prefs);
+    apply_prefs();
 
     QObject::connect(lv, &QListView::clicked, [this](const QModelIndex &i) {
         auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
@@ -497,23 +501,18 @@ void DeduperMainWindow::setup_menu()
         QMenu *cm = new QMenu(this);
         QAction *ma = cm->addAction(cks == Qt::CheckState::Checked ? "Unmark" : "Mark");
         QObject::connect(ma, &QAction::triggered, std::bind(&DeduperMainWindow::mark_toggle, this, idx.row()));
-        selhk.push_back(ma);
 
         QAction *sa = cm->addAction("Mark All Except");
         QObject::connect(sa, &QAction::triggered, std::bind(&DeduperMainWindow::mark_all_but, this, idx.row()));
-        selhk.push_back(sa);
 
         QAction *ca = cm->addAction(id->is_single_item_mode() ? "Restore" : "Maximize");
         QObject::connect(ca, &QAction::triggered, std::bind(&DeduperMainWindow::show_only, this, idx.row()));
-        selhk.push_back(ca);
 
         QAction *oa = cm->addAction("Open Image");
         QObject::connect(oa, &QAction::triggered, std::bind(&DeduperMainWindow::open_image, this, idx.row()));
-        selhk.push_back(oa);
 
         QAction *la = cm->addAction("Open Containing Folder");
         QObject::connect(la, &QAction::triggered, std::bind(&DeduperMainWindow::locate_image, this, idx.row()));
-        selhk.push_back(la);
 
         QObject::connect(cm, &QMenu::aboutToHide, [cm] {cm->deleteLater();});
         cm->popup(this->lv->mapToGlobal(pos));
@@ -822,6 +821,18 @@ void DeduperMainWindow::apply_prefs()
         std::string hkn = hkp.first.substr(3);
         QKeySequence ks = sr->get_option_keyseq("hotkey/" + hkn);
         menuact[hkn]->setShortcut(ks);
+    }
+    for (size_t i = 0; i < selhk.size(); ++i)
+    {
+        QAction *act = selhk[i];
+        size_t actn = i / ItemActionType::ACTION_MAX;
+        size_t actt = i % ItemActionType::ACTION_MAX;
+        std::string iamt = "hotkey/item_action_mod_" + std::to_string(actt);
+        std::string iakt = "hotkey/item_" + std::to_string(actn) + "_action_key";
+        int ik = sr->get_option_int(iakt);
+        int im = sr->get_option_int(iamt);
+        QKeySequence ks = QKeySequence(static_cast<Qt::Key>(ik | im));
+        act->setShortcut(ks);
     }
 }
 
