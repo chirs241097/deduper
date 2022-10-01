@@ -873,7 +873,7 @@ void DeduperMainWindow::mark_all_but(size_t x)
         for (int i = 0; i < im->rowCount(); ++i)
         {
             Qt::CheckState ckst = (i == x) ? Qt::CheckState::Unchecked : Qt::CheckState::Checked;
-            im->item(x)->setCheckState(ckst);
+            im->item(i)->setCheckState(ckst);
         }
     }
     marked_update();
