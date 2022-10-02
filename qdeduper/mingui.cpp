@@ -57,23 +57,23 @@ const std::vector<int> iadefkeys = {
         Qt::Key::Key_U, Qt::Key::Key_I, Qt::Key::Key_O, Qt::Key::Key_P
 };
 const std::map<std::string, QKeySequence> defhk = {
-    {"00_create_db",    QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_T)},
-    {"01_load_db",      QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_O)},
-    {"02_save_db",      QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_W)},
-    {"03_save_list",    QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_E)},
-    {"04_load_list",    QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_R)},
-    {"05_search_image", QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_Slash)},
-    {"06_preferences",  QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_P)},
-    {"07_exit",         QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_Q)},
-    {"08_next_group",   QKeySequence(Qt::Key::Key_M)},
-    {"09_prev_group",   QKeySequence(Qt::Key::Key_Z)},
-    {"10_skip_group",   QKeySequence(Qt::Key::Key_B)},
-    {"11_single_mode_toggle", QKeySequence()},
-    {"12_mark_all",     QKeySequence(Qt::Key::Key_X)},
-    {"13_mark_none",     QKeySequence(Qt::Key::Key_C)},
-    {"14_mark_all_dir", QKeySequence()},
-    {"15_mark_all_dir_rec", QKeySequence()},
-    {"16_view_marked",  QKeySequence()},
+    {"create_db",    QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_T)},
+    {"load_db",      QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_O)},
+    {"save_db",      QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_W)},
+    {"save_list",    QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_E)},
+    {"load_list",    QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_R)},
+    {"search_image", QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_Slash)},
+    {"preferences",  QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_P)},
+    {"exit",         QKeySequence(Qt::Modifier::CTRL | Qt::Key::Key_Q)},
+    {"next_group",   QKeySequence(Qt::Key::Key_M)},
+    {"prev_group",   QKeySequence(Qt::Key::Key_Z)},
+    {"skip_group",   QKeySequence(Qt::Key::Key_B)},
+    {"single_mode_toggle", QKeySequence()},
+    {"mark_all",     QKeySequence(Qt::Key::Key_X)},
+    {"mark_none",     QKeySequence(Qt::Key::Key_C)},
+    {"mark_all_dir", QKeySequence()},
+    {"mark_all_dir_rec", QKeySequence()},
+    {"view_marked",  QKeySequence()},
 };
 const std::vector<int> iadefmo = {
     0,                                          //mark_toggle
@@ -185,8 +185,7 @@ DeduperMainWindow::DeduperMainWindow()
     int hkt = sr->register_tab("Shortcuts");
     for (auto &hkp : defhk)
     {
-        std::string hkn = hkp.first.substr(3);
-        sr->register_keyseq_option(hkt, "hotkey/" + hkn, QString(), hkp.second);
+        sr->register_keyseq_option(hkt, "hotkey/" + hkp.first, QString(), hkp.second);
     }
     for (size_t i = 0; i < iadefmo.size(); ++i)
     {
@@ -198,10 +197,13 @@ DeduperMainWindow::DeduperMainWindow()
         std::string iakt = "hotkey/item_" + std::to_string(i) + "_action_key";
         sr->register_int_option(hkt, iakt, QString(), INT_MIN, INT_MAX, iadefkeys[i]);
     }
+    int tbt = sr->register_tab("Toolbar");
+    sr->register_strlist_option(tbt, "toolbar_actions", "", {"prev_group", "next_group", "skip_group", "single_mode_toggle", "sort"});
     prefdlg = new PreferenceDialog(sr, this);
     prefdlg->setModal(true);
     prefdlg->close();
-    prefdlg->set_hkactions(hkt, defhk, menuact);
+    prefdlg->set_hkactions(hkt, actionlist, menuact);
+    prefdlg->set_toolbaractions(tbt, menuact);
     QObject::connect(menuact["preferences"], &QAction::triggered, prefdlg, &PreferenceDialog::open);
     QObject::connect(prefdlg, &PreferenceDialog::accepted, this, &DeduperMainWindow::apply_prefs);
     apply_prefs();
@@ -250,7 +252,7 @@ void DeduperMainWindow::setup_menu()
 
     QAction *create_db = file->addAction("Create Database...");
     QObject::connect(create_db, &QAction::triggered, this, &DeduperMainWindow::create_new);
-    menuact["create_db"] = create_db;
+    register_action("create_db", create_db);
     QAction *load_db = file->addAction("Load Database...");
     load_db->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_DialogOpenButton));
     QObject::connect(load_db, &QAction::triggered, [this] {
@@ -287,7 +289,7 @@ void DeduperMainWindow::setup_menu()
             }, Qt::ConnectionType::QueuedConnection);
         }
     });
-    menuact["load_db"] = load_db;
+    register_action("load_db", load_db);
 
     QAction *save_db = file->addAction("Save Database...");
     save_db->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_DialogSaveButton));
@@ -296,16 +298,16 @@ void DeduperMainWindow::setup_menu()
         if (!dbpath.isNull() && this->sdb)
             this->sdb->save(utilities::qstring_to_path(dbpath));
     });
-    menuact["save_db"] = save_db;
+    register_action("save_db", save_db);
     file->addSeparator();
 
     QAction *savelist = file->addAction("Export Marked Images List...");
     QObject::connect(savelist, &QAction::triggered, [this]{Q_EMIT this->save_list();});
-    menuact["save_list"] = savelist;
+    register_action("save_list", savelist);
 
     QAction *loadlist = file->addAction("Import Marked Images List...");
     QObject::connect(loadlist, &QAction::triggered, [this]{Q_EMIT this->load_list();});
-    menuact["load_list"] = loadlist;
+    register_action("load_list", loadlist);
 
     file->addSeparator();
     QAction *search_img = file->addAction("Search for Image...");
@@ -315,19 +317,19 @@ void DeduperMainWindow::setup_menu()
         searched_image = utilities::qstring_to_path(fpath);
         search_image(searched_image);
     });
-    menuact["search_image"] = search_img;
+    register_action("search_image", search_img);
     file->addSeparator();
     QAction *pref = file->addAction("Preferences...");
-    menuact["preferences"] = pref;
+    register_action("preferences", pref);
     QAction *exita = file->addAction("Exit");
     QObject::connect(exita, &QAction::triggered, [this] {
         if (this->modified_check()) qApp->quit();
     });
-    menuact["exit"] = exita;
+    register_action("exit", exita);
 
     QAction *nxtgrp = view->addAction("Next Group");
     nxtgrp->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowRight));
-    menuact["next_group"] = nxtgrp;
+    register_action("next_group", nxtgrp);
     QObject::connect(nxtgrp, &QAction::triggered, [this] {
         if (this->vm == ViewMode::view_searchresult) { this->show_group(curgroup); return; }
         if (this->sdb && curgroup + 1 < this->sdb->num_groups())
@@ -336,7 +338,7 @@ void DeduperMainWindow::setup_menu()
 
     QAction *prvgrp = view->addAction("Previous Group");
     prvgrp->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowLeft));
-    menuact["prev_group"] = prvgrp;
+    register_action("prev_group", prvgrp);
     QObject::connect(prvgrp, &QAction::triggered, [this] {
         if (this->vm == ViewMode::view_searchresult) { this->show_group(curgroup); return; }
         if (this->sdb && curgroup > 0)
@@ -345,7 +347,7 @@ void DeduperMainWindow::setup_menu()
 
     QAction *skip = view->addAction("Skip to Group...");
     skip->setIcon(this->style()->standardIcon(QStyle::StandardPixmap::SP_ArrowUp));
-    menuact["skip_group"] = skip;
+    register_action("skip_group", skip);
     QObject::connect(skip, &QAction::triggered, [this] {
         if (!this->sdb) return;
         bool ok = false;
@@ -359,7 +361,7 @@ void DeduperMainWindow::setup_menu()
     view->addSeparator();
     QAction *singlemode = view->addAction("Single Item Mode");
     singlemode->setCheckable(true);
-    menuact["single_mode_toggle"] = singlemode;
+    register_action("single_mode_toggle", singlemode);
     QObject::connect(singlemode, &QAction::triggered, [this] (bool c) {
         id->set_single_item_mode(c);
     });
@@ -434,14 +436,15 @@ void DeduperMainWindow::setup_menu()
     }
     sasc->setChecked(true);
     sordg->setExclusionPolicy(QActionGroup::ExclusionPolicy::Exclusive);
+    register_action("sort", sort);
 
     QAction *mall = mark->addAction("Mark All");
     QObject::connect(mall, &QAction::triggered, [this]{this->mark_all();});
-    menuact["mark_all"] = mall;
+    register_action("mark_all", mall);
 
     QAction *mnone = mark->addAction("Mark None");
     QObject::connect(mnone, &QAction::triggered, [this]{this->mark_none();});
-    menuact["mark_none"] = mnone;
+    register_action("mark_none", mnone);
 
     QAction *madir = mark->addAction("Mark All within directory...");
     QObject::connect(madir, &QAction::triggered, [this] {
@@ -461,7 +464,7 @@ void DeduperMainWindow::setup_menu()
             itm->setCheckState(marked.find(fp) == marked.end() ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
         }
     });
-    menuact["mark_all_dir"] = madir;
+    register_action("mark_all_dir", madir);
     QAction *madirr = mark->addAction("Mark All within directory and subdirectory...");
     QObject::connect(madirr, &QAction::triggered, [this] {
         QString s = QFileDialog::getExistingDirectory(this, "Open");
@@ -480,11 +483,11 @@ void DeduperMainWindow::setup_menu()
             itm->setCheckState(marked.find(fp) == marked.end() ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
         }
     });
-    menuact["mark_all_dir_rec"] = madirr;
+    register_action("mark_all_dir_rec", madirr);
     mark->addSeparator();
     QAction *view_marked = mark->addAction("Review Marked Images");
     QObject::connect(view_marked, &QAction::triggered, this, &DeduperMainWindow::show_marked);
-    menuact["view_marked"] = view_marked;
+    register_action("view_marked", view_marked);
 
     help->addAction("Help");
     help->addSeparator();
@@ -520,13 +523,6 @@ void DeduperMainWindow::setup_menu()
 
     tb = new QToolBar(this);
     this->addToolBar(tb);
-    tb->addAction(prvgrp);
-    tb->addAction(nxtgrp);
-    tb->addAction(skip);
-    tb->addAction(sort);
-    QToolButton *tbsortb = qobject_cast<QToolButton*>(tb->widgetForAction(sort));
-    tbsortb->setPopupMode(QToolButton::ToolButtonPopupMode::InstantPopup);
-    tb->setToolButtonStyle(Qt::ToolButtonStyle::ToolButtonTextBesideIcon);
 
     for (auto &ap : menuact)
         this->addAction(ap.second);
@@ -816,9 +812,8 @@ void DeduperMainWindow::apply_prefs()
         this->rampupd->stop();
         this->dbramusg->setText(QString());
     }
-    for (auto &hkp : defhk)
+    for (auto &hkn : actionlist)
     {
-        std::string hkn = hkp.first.substr(3);
         QKeySequence ks = sr->get_option_keyseq("hotkey/" + hkn);
         menuact[hkn]->setShortcut(ks);
     }
@@ -834,12 +829,34 @@ void DeduperMainWindow::apply_prefs()
         QKeySequence ks = ~im ? QKeySequence(static_cast<Qt::Key>(ik | im)) : QKeySequence();
         act->setShortcut(ks);
     }
+    auto tbal = sr->get_option_strlist("toolbar_actions");
+    tb->clear();
+    bool tbvisible = false;
+    for (auto &tban : tbal)
+    {
+        if (menuact.find(tban.toStdString()) == menuact.end()) continue;
+        tbvisible = true;
+        QAction *act = menuact[tban.toStdString()];
+        tb->addAction(act);
+        if (act->menu())
+        {
+            QToolButton *tbb = qobject_cast<QToolButton*>(tb->widgetForAction(act));
+            tbb->setPopupMode(QToolButton::ToolButtonPopupMode::InstantPopup);
+        }
+    }
+    tb->setVisible(tbvisible);
 }
 
 void DeduperMainWindow::update_memusg()
 {
     if (this->sdb)
         dbramusg->setText(QString("Database memory usage: %1").arg(QLocale::system().formattedDataSize(this->sdb->db_memory_usage())));
+}
+
+void DeduperMainWindow::register_action(const std::string &actn, QAction *act)
+{
+    menuact[actn] = act;
+    actionlist.push_back(actn);
 }
 
 void DeduperMainWindow::sort_reassign_hotkeys()

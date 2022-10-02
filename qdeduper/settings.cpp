@@ -127,3 +127,59 @@ void SettingsRegistry::set_option_keyseq(std::string key, QKeySequence ks)
         return;
     s->setValue(QString::fromStdString(key), QVariant::fromValue<QKeySequence>(ks));
 }
+
+void SettingsRegistry::register_str_option(int tab, std::string key, QString desc, QString defaultval)
+{
+    klist.push_back(key);
+    smap[key] = {
+        SettingsItem::ParameterType::_str,
+        tab,
+        key,
+        desc,
+        QVariant(),
+        QVariant(),
+        QVariant::fromValue<QString>(defaultval),
+        nullptr};
+}
+
+QString SettingsRegistry::get_option_str(std::string key)
+{
+    if (smap.find(key) == smap.end() || smap[key].type != SettingsItem::ParameterType::_str)
+        return QString();
+    return s->value(QString::fromStdString(key), smap[key].defaultv).value<QString>();
+}
+
+void SettingsRegistry::set_option_str(std::string key, QString str)
+{
+    if (smap.find(key) == smap.end() || smap[key].type != SettingsItem::ParameterType::_str)
+        return;
+    s->setValue(QString::fromStdString(key), QVariant::fromValue<QString>(str));
+}
+
+void SettingsRegistry::register_strlist_option(int tab, std::string key, QString desc, QStringList defaultval)
+{
+    klist.push_back(key);
+    smap[key] = {
+        SettingsItem::ParameterType::_strlist,
+        tab,
+        key,
+        desc,
+        QVariant(),
+        QVariant(),
+        QVariant::fromValue<QStringList>(defaultval),
+        nullptr};
+}
+
+QStringList SettingsRegistry::get_option_strlist(std::string key)
+{
+    if (smap.find(key) == smap.end() || smap[key].type != SettingsItem::ParameterType::_strlist)
+        return QStringList();
+    return s->value(QString::fromStdString(key), smap[key].defaultv).value<QStringList>();
+}
+
+void SettingsRegistry::set_option_strlist(std::string key, QStringList str)
+{
+    if (smap.find(key) == smap.end() || smap[key].type != SettingsItem::ParameterType::_strlist)
+        return;
+    s->setValue(QString::fromStdString(key), QVariant::fromValue<QStringList>(str));
+}

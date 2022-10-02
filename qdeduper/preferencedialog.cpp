@@ -14,12 +14,21 @@
 #include <QAction>
 #include <QTableView>
 #include <QStandardItemModel>
+#include <QSortFilterProxyModel>
+#include <QListView>
 #include <QKeySequenceEdit>
 #include <QGroupBox>
 #include <QMessageBox>
 
 #include "preferencedialog.hpp"
 #include "settings.hpp"
+
+enum ToolbarActionRoles
+{
+    action_role = Qt::ItemDataRole::UserRole + 1,
+    order_role,
+    hide_role
+};
 
 PreferenceDialog::PreferenceDialog(SettingsRegistry *sr, QWidget *parent) : QDialog(parent)
 {
@@ -128,9 +137,9 @@ void PreferenceDialog::setup_widgets()
     }
 }
 
-void PreferenceDialog::set_hkactions(int tab, std::map<std::string, QKeySequence> defmap, std::map<std::string, QAction*> actmap)
+void PreferenceDialog::set_hkactions(int tab, const std::vector<std::string> &actlist, const std::map<std::string, QAction*> &actmap)
 {
-    this->defmap = defmap;
+    this->actlist = actlist;
     this->actmap = actmap;
     this->hktv = new QTableView();
     this->hkim = new QStandardItemModel();
@@ -156,6 +165,76 @@ void PreferenceDialog::set_hkactions(int tab, std::map<std::string, QKeySequence
         l->addWidget(me, i, 1);
         mes.push_back(me);
     }
+}
+
+void PreferenceDialog::set_toolbaractions(int tab, const std::map<std::string, QAction*> &actmap)
+{
+    QGridLayout *l = this->tabs[tab];
+    tbaav = new QListView();
+    tbaam = new QStandardItemModel();
+    tbapm = new QSortFilterProxyModel();
+    tbapm->setSourceModel(tbaam);
+    tbapm->setSortRole(ToolbarActionRoles::order_role);
+    tbapm->setFilterRole(ToolbarActionRoles::hide_role);
+    tbapm->setFilterKeyColumn(0);
+    tbapm->setFilterFixedString("0");
+    tbaav->setModel(tbapm);
+    tbeav = new QListView();
+    tbeam = new QStandardItemModel();
+    tbeav->setModel(tbeam);
+    tbaav->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
+    tbeav->setSelectionMode(QAbstractItemView::SelectionMode::SingleSelection);
+    tbaav->setDragDropMode(QAbstractItemView::DragDropMode::NoDragDrop);
+    tbeav->setDragDropMode(QAbstractItemView::DragDropMode::InternalMove);
+    QPushButton *pbadd = new QPushButton(">");
+    QPushButton *pbdel = new QPushButton("<");
+    pbadd->setMaximumWidth(24);
+    pbdel->setMaximumWidth(24);
+    QVBoxLayout *vbl = new QVBoxLayout();
+    vbl->addWidget(pbadd);
+    vbl->addWidget(pbdel);
+    l->addWidget(new QLabel("Available Buttons"), 0, 0);
+    l->addWidget(new QLabel("Enabled Buttons"), 0, 2);
+    l->addWidget(tbaav, 1, 0);
+    l->addLayout(vbl, 1, 1);
+    l->addWidget(tbeav, 1, 2);
+    l->addWidget(new QLabel("Drag to sort enabled buttons."), 2, 0, 1, 3);
+    tbaam->clear();
+    for (size_t i = 0; i < actlist.size(); ++i)
+    {
+        auto &actn = actlist[i];
+        QAction *act = this->actmap[actn];
+        QStandardItem *itm = new QStandardItem(act->text());
+        itm->setIcon(act->icon());
+        itm->setData(QString::fromStdString(actn), ToolbarActionRoles::action_role);
+        itm->setData(QVariant::fromValue<size_t>(i), ToolbarActionRoles::order_role);
+        itm->setData("0", ToolbarActionRoles::hide_role);
+        tbaam->appendRow(itm);
+    }
+    QObject::connect(pbadd, &QPushButton::clicked, [this] {
+        QModelIndex idx = tbaav->currentIndex();
+        if (!idx.isValid()) return;
+        QString actn = idx.data(ToolbarActionRoles::action_role).value<QString>();
+        QAction *act = this->actmap[actn.toStdString()];
+        QStandardItem *itm = new QStandardItem(act->text());
+        itm->setIcon(act->icon());
+        itm->setData(actn, ToolbarActionRoles::action_role);
+        itm->setDropEnabled(false);
+        tbeam->appendRow(itm);
+        tbaam->setData(tbapm->mapToSource(idx), "1", ToolbarActionRoles::hide_role);
+    });
+    QObject::connect(pbdel, &QPushButton::clicked, [this] {
+        QModelIndex idx = tbeav->currentIndex();
+        if (!idx.isValid()) return;
+        QString actn = idx.data(ToolbarActionRoles::action_role).value<QString>();
+        for (int i = 0; i < tbaam->rowCount(); ++i)
+        {
+            const auto &idx = tbaam->index(i, 0);
+            if (tbaam->data(idx, ToolbarActionRoles::action_role).value<QString>() == actn)
+                tbaam->setData(idx, "0", ToolbarActionRoles::hide_role);
+        }
+        tbeam->removeRows(idx.row(), 1);
+    });
 }
 
 void PreferenceDialog::load_widget_status()
@@ -193,9 +272,8 @@ void PreferenceDialog::load_widget_status()
     }
     this->hkim->clear();
     this->hkim->setHorizontalHeaderLabels({"Menu Item", "Hotkey"});
-    for (auto &hkp : this->defmap)
+    for (auto &actn : this->actlist)
     {
-        std::string actn = hkp.first.substr(3);
         QKeySequence ks = sr->get_option_keyseq("hotkey/" + actn);
         if (this->actmap.find(actn) == this->actmap.end())
             continue;
@@ -226,6 +304,28 @@ void PreferenceDialog::load_widget_status()
         std::string iamt = "hotkey/item_action_mod_" + std::to_string(i);
         int im = sr->get_option_int(iamt);
         mes[i]->set_modifier(static_cast<Qt::Modifier>(im));
+    }
+    for (int i = 0; i < tbaam->rowCount(); ++i)
+    {
+        const auto &idx = tbaam->index(i, 0);
+        tbaam->setData(idx, "0", ToolbarActionRoles::hide_role);
+    }
+    auto tbal = sr->get_option_strlist("toolbar_actions");
+    this->tbeam->clear();
+    for (auto &tban : tbal)
+    {
+        QAction *act = this->actmap[tban.toStdString()];
+        QStandardItem *itm = new QStandardItem(act->text());
+        itm->setIcon(act->icon());
+        itm->setData(tban, ToolbarActionRoles::action_role);
+        itm->setDropEnabled(false);
+        for (int i = 0; i < tbaam->rowCount(); ++i)
+        {
+            const auto &idx = tbaam->index(i, 0);
+            if (tbaam->data(idx, ToolbarActionRoles::action_role).value<QString>() == tban)
+                tbaam->setData(idx, "1", ToolbarActionRoles::hide_role);
+        }
+        tbeam->appendRow(itm);
     }
 }
 
@@ -275,6 +375,10 @@ void PreferenceDialog::save_widget_status()
         std::string iamt = "hotkey/item_action_mod_" + std::to_string(i);
         sr->set_option_int(iamt, mes[i]->get_modifier());
     }
+    QStringList tbal;
+    for (int i = 0; i < tbeam->rowCount(); ++i)
+        tbal.push_back(tbeam->item(i)->data(ToolbarActionRoles::action_role).value<QString>());
+    sr->set_option_strlist("toolbar_actions", tbal);
 }
 
 int PreferenceDialog::verify_shortcuts(QKeySequence *bks)

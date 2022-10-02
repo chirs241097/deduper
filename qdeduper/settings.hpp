@@ -47,6 +47,12 @@ public:
     void register_keyseq_option(int tab, std::string key, QString desc, QKeySequence defaultval);
     QKeySequence get_option_keyseq(std::string key);
     void set_option_keyseq(std::string key, QKeySequence ks);
+    void register_str_option(int tab, std::string key, QString desc, QString defaultval);
+    QString get_option_str(std::string key);
+    void set_option_str(std::string key, QString str);
+    void register_strlist_option(int tab, std::string key, QString desc, QStringList defaultval);
+    QStringList get_option_strlist(std::string key);
+    void set_option_strlist(std::string key, QStringList str);
 private:
     QSettings *s;
     QStringList tabs;

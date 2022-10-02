@@ -60,6 +60,7 @@ private:
     QListView *lv;
     QToolBar *tb = nullptr;
     std::map<std::string, QAction*> menuact;
+    std::vector<std::string> actionlist;
     QList<QAction*> selhk;
     QStandardItemModel *im = nullptr;
     ImageItemDelegate *id = nullptr;
@@ -112,6 +113,7 @@ public Q_SLOTS:
     void show_marked();
     void apply_prefs();
     void update_memusg();
+    void register_action(const std::string &actn, QAction *act);
 Q_SIGNALS:
     void next();
     void prev();

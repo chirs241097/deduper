@@ -16,7 +16,9 @@ class QTabWidget;
 class QGridLayout;
 class QDialogButtonBox;
 class QTableView;
+class QListView;
 class QStandardItemModel;
+class QSortFilterProxyModel;
 
 class ModifierEdit : public QPushButton
 {
@@ -38,7 +40,8 @@ class PreferenceDialog : public QDialog
 public:
     PreferenceDialog(SettingsRegistry *sr, QWidget *parent = nullptr);
     void setup_widgets();
-    void set_hkactions(int tab, std::map<std::string, QKeySequence> defmap, std::map<std::string, QAction*> actmap);
+    void set_hkactions(int tab, const std::vector<std::string> &actlist, const std::map<std::string, QAction*> &actmap);
+    void set_toolbaractions(int tab, const std::map<std::string, QAction*> &actmap);
     void load_widget_status();
     void save_widget_status();
 
@@ -54,7 +57,12 @@ private:
     QDialogButtonBox *bb;
     QTableView *hktv = nullptr;
     QStandardItemModel *hkim = nullptr;
-    std::map<std::string, QKeySequence> defmap;
+    QListView *tbaav = nullptr;
+    QStandardItemModel *tbaam = nullptr;
+    QSortFilterProxyModel *tbapm = nullptr;
+    QListView *tbeav = nullptr;
+    QStandardItemModel *tbeam = nullptr;
+    std::vector<std::string> actlist;
     std::map<std::string, QAction*> actmap;
     std::vector<ModifierEdit*> mes;
 };
