@@ -38,7 +38,7 @@ fs::path qstring_to_path(const QString &s)
 void open_containing_folder(const fs::path &path)
 {
 #ifdef _WIN32
-    QProcess::startDetached("explorer", QStringList() << "/select," << QDir::toNativeSeparators(fileInfo.absoluteFilePath()));
+    QProcess::startDetached("explorer", QStringList() << "/select," << fspath_to_qstring(path));
 #else
 #ifdef HAS_QTDBUS
     auto conn = QDBusConnection::sessionBus();
