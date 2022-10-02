@@ -829,9 +829,9 @@ void DeduperMainWindow::apply_prefs()
         size_t actt = i % ItemActionType::ACTION_MAX;
         std::string iamt = "hotkey/item_action_mod_" + std::to_string(actt);
         std::string iakt = "hotkey/item_" + std::to_string(actn) + "_action_key";
-        int ik = sr->get_option_int(iakt);
         int im = sr->get_option_int(iamt);
-        QKeySequence ks = QKeySequence(static_cast<Qt::Key>(ik | im));
+        int ik = sr->get_option_int(iakt);
+        QKeySequence ks = ~im ? QKeySequence(static_cast<Qt::Key>(ik | im)) : QKeySequence();
         act->setShortcut(ks);
     }
 }

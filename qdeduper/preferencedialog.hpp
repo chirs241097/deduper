@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 
+#include <QPushButton>
 #include <QDialog>
 #include <QGridLayout>
 #include <QStyledItemDelegate>
@@ -17,6 +18,20 @@ class QDialogButtonBox;
 class QTableView;
 class QStandardItemModel;
 
+class ModifierEdit : public QPushButton
+{
+    Q_OBJECT
+public:
+    ModifierEdit(QWidget *par = nullptr);
+    Qt::Modifier get_modifier();
+    void set_modifier(Qt::Modifier mod);
+    bool event(QEvent *e) override;
+protected:
+    void keyPressEvent(QKeyEvent *e) override;
+private:
+    Qt::Modifier mod;
+};
+
 class PreferenceDialog : public QDialog
 {
     Q_OBJECT
@@ -27,9 +42,12 @@ public:
     void load_widget_status();
     void save_widget_status();
 
+public Q_SLOTS:
     void open() override;
     void accept() override;
 private:
+    int verify_shortcuts(QKeySequence *bks);
+
     SettingsRegistry *sr;
     QTabWidget *tw;
     std::vector<QGridLayout*> tabs;
@@ -38,6 +56,7 @@ private:
     QStandardItemModel *hkim = nullptr;
     std::map<std::string, QKeySequence> defmap;
     std::map<std::string, QAction*> actmap;
+    std::vector<ModifierEdit*> mes;
 };
 
 class ShortcutEditorDelegate : public QStyledItemDelegate
