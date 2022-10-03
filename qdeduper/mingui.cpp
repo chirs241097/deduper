@@ -93,9 +93,6 @@ DeduperMainWindow::DeduperMainWindow()
     sb = this->statusBar();
     sb->addPermanentWidget(dbramusg = new QLabel());
     sb->addPermanentWidget(permamsg = new QLabel());
-    QLabel *opm = new QLabel();
-    opm->setText("placeholder status bar text");
-    sb->addWidget(opm);
     l = new QSplitter(Qt::Orientation::Horizontal, this);
     l->setContentsMargins(6, 6, 6, 6);
     l->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -231,7 +228,7 @@ DeduperMainWindow::DeduperMainWindow()
     l->setStretchFactor(1, 1);
     l->setCollapsible(0, false);
     marked.clear();
-    infopanel->setText("bleh");
+    infopanel->setText("(Difference between images)");
     infopanel->setSizePolicy(QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Minimum);
     nohotkeywarn = false;
     sort_role = ImageItem::ImageItemRoles::default_order_role;
@@ -360,6 +357,7 @@ void DeduperMainWindow::setup_menu()
 
     view->addSeparator();
     QAction *singlemode = view->addAction("Single Item Mode");
+    singlemode->setIcon(QIcon(":/img/maximize.svg"));
     singlemode->setCheckable(true);
     register_action("single_mode_toggle", singlemode);
     QObject::connect(singlemode, &QAction::triggered, [this] (bool c) {
@@ -368,6 +366,7 @@ void DeduperMainWindow::setup_menu()
 
     view->addSeparator();
     QAction *sort = view->addAction("Sort by");
+    sort->setIcon(QIcon(":/img/sort.svg"));
     QMenu *sortm = new QMenu(this);
     sort->setMenu(sortm);
     QAction *sfsz = sortm->addAction("File size");
@@ -439,6 +438,7 @@ void DeduperMainWindow::setup_menu()
     register_action("sort", sort);
 
     QAction *mall = mark->addAction("Mark All");
+    mall->setIcon(QIcon(":/img/select_all.svg"));
     QObject::connect(mall, &QAction::triggered, [this]{this->mark_all();});
     register_action("mark_all", mall);
 

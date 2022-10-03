@@ -1,5 +1,8 @@
 <!DOCTYPE RCC><RCC version="1.0">
     <qresource>
         <file>img/deduper.png</file>
+        <file>img/maximize.svg</file>
+        <file>img/sort.svg</file>
+        <file>img/select_all.svg</file>
     </qresource>
 </RCC>
