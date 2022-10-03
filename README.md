@@ -33,7 +33,8 @@ H. Chi Wong, M. Bern and D. Goldberg, "An image signature for any kind of image,
 Proceedings. International Conference on Image Processing, 2002, pp. I-I,
 doi: 10.1109/ICIP.2002.1038047.
 
-Deduper is still a work in progress. For the older, libpuzzle based implementation,
+Deduper is still a work in progress. Both the library and frontend are considered experimental
+at this time. Any issue report will be appreciated. For the older, libpuzzle based implementation,
 see https://cgit.chrisoft.org/oddities.git/tree/deduper.
 
 ## QDeduper
@@ -41,6 +42,27 @@ see https://cgit.chrisoft.org/oddities.git/tree/deduper.
 QDeduper is a graphical frontend for deduper. It can scan for duplicate images and manage
 the duplicates found afterwards. It also provides a "reverse image search" tool. See its
 documentation for details.
+
+## Building Deduper
+
+At the current stage, no feature switches will be provided. Everything will be built with the
+supplied CMake project.
+
+### Dependencies
+
+- OpenCV (modules core, imgcodecs, imgproc. Some tests uses highgui as well.)
+- SQLite (used by the signature database module)
+- Qt5 or Qt6 (QDeduper)
+
+To build, run:
+
+```
+mkdir build && cd build
+cmake ..
+make -j$(nproc)
+```
+
+If you want to build with Qt6, add `-DQDEDUPER_USE_QT6=ON` to cmake's arguments.
 
 ## License
 
