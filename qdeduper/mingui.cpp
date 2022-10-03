@@ -577,25 +577,29 @@ void DeduperMainWindow::show_images(const std::vector<size_t> &ids)
     for (auto &id : ids) fns.push_back(this->sdb->get_image_path(id));
     fs::path::string_type common_pfx = common_prefix(fns);
     size_t idx = 0;
-    if (ids.size() > iadefkeys.size() && !nohotkeywarn && this->vm != ViewMode::view_marked)
-        nohotkeywarn = QMessageBox::StandardButton::Ignore ==
-                       QMessageBox::warning(this,
-                             "Too many duplicates",
-                             "Too many duplicates found. Some couldn't be assigned a hotkey. Ignore = do not show again.",
-                             QMessageBox::StandardButton::Ok | QMessageBox::StandardButton::Ignore,
-                             QMessageBox::StandardButton::Ok);
+    bool no_shortcut = false;
     for (auto &id : ids)
     {
         fs::path &f = fns[idx];
+        QKeySequence ks;
+        if (idx < iadefkeys.size())
+            ks = QKeySequence(sr->get_option_int("hotkey/item_" + std::to_string(idx) + "_action_key"));
+        if (ks.isEmpty()) no_shortcut = true;
         ImageItem *imitm = new ImageItem(utilities::fspath_to_qstring(f),
                                          utilities::fsstr_to_qstring(f.native().substr(common_pfx.length())),
-                                         idx < iadefkeys.size() ? iadefkeys[idx] : QKeySequence(),
-                                         id, idx,
+                                         ks, id, idx,
                                          lv->devicePixelRatioF());
         imitm->setCheckState(marked.find(f) == marked.end() ? Qt::CheckState::Unchecked : Qt::CheckState::Checked);
         im->appendRow(imitm);
         ++idx;
     }
+    if (no_shortcut && !nohotkeywarn && this->vm != ViewMode::view_marked)
+        nohotkeywarn = QMessageBox::StandardButton::Ignore ==
+                       QMessageBox::warning(this,
+                             "No hotkey assigned to image item",
+                             "Some duplicates aren't assigned to a hotkey. Ignore = do not show again.",
+                             QMessageBox::StandardButton::Ok | QMessageBox::StandardButton::Ignore,
+                             QMessageBox::StandardButton::Ok);
     marked_update(false);
 }
 
@@ -856,7 +860,12 @@ void DeduperMainWindow::sort_reassign_hotkeys()
     im->setSortRole(this->sort_role);
     im->sort(0, this->sort_order);
     for (int i = 0; i < im->rowCount(); ++i)
-        static_cast<ImageItem*>(im->item(i))->set_hotkey(i < iadefkeys.size() ? iadefkeys[i] : QKeySequence());
+    {
+        QKeySequence ks;
+        if (i < iadefkeys.size())
+            ks = QKeySequence(sr->get_option_int("hotkey/item_" + std::to_string(i) + "_action_key"));
+        static_cast<ImageItem*>(im->item(i))->set_hotkey(ks);
+    }
 }
 
 void DeduperMainWindow::mark_toggle(size_t x)
