@@ -1,3 +1,5 @@
+//Chris Xiong 2022
+//License: MPL-2.0
 #ifndef SIGDB_QT_HPP
 #define SIGDB_QT_HPP
 

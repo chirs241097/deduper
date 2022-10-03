@@ -1,3 +1,5 @@
+//Chris Xiong 2022
+//License: MPL-2.0
 #ifndef PREFERENCEDIALOG_HPP
 #define PREFERENCEDIALOG_HPP
 

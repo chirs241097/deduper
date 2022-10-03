@@ -1,3 +1,5 @@
+//Chris Xiong 2022
+//License: MPL-2.0
 #ifndef SETTINGS_HPP
 #define SETTINGS_HPP
 

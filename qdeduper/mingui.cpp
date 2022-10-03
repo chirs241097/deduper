@@ -1,3 +1,5 @@
+//Chris Xiong 2022
+//License: MPL-2.0
 #include "mingui.hpp"
 #include "utilities.hpp"
 #include "imageitem.hpp"
