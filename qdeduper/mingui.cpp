@@ -208,20 +208,10 @@ DeduperMainWindow::DeduperMainWindow()
     apply_prefs();
 
     QObject::connect(lv, &QListView::clicked, [this](const QModelIndex &i) {
-        auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
-        if (cs == Qt::CheckState::Checked)
-            cs = Qt::CheckState::Unchecked;
-        else cs = Qt::CheckState::Checked;
-        this->im->setData(i, cs, Qt::ItemDataRole::CheckStateRole);
-        this->marked_update();
+        if (i.isValid()) this->mark_toggle(i.row());
     });
     QObject::connect(lv, &QListView::doubleClicked, [this](const QModelIndex &i) {
-        auto cs = i.data(Qt::ItemDataRole::CheckStateRole).value<Qt::CheckState>();
-        if (cs == Qt::CheckState::Checked)
-            cs = Qt::CheckState::Unchecked;
-        else cs = Qt::CheckState::Checked;
-        this->im->setData(i, cs, Qt::ItemDataRole::CheckStateRole);
-        this->marked_update();
+        if (i.isValid()) this->mark_toggle(i.row());
         open_image(i.row());
     });
     l->addWidget(lv);
