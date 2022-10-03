@@ -52,6 +52,8 @@
 #include <QInputDialog>
 #include <QDesktopServices>
 
+#define QDEDUPER_VERSION "0.0.0+experimental_phase_1"
+
 const std::vector<int> iadefkeys = {
         Qt::Key::Key_A, Qt::Key::Key_S, Qt::Key::Key_D, Qt::Key::Key_F,
         Qt::Key::Key_G, Qt::Key::Key_H, Qt::Key::Key_J, Qt::Key::Key_K,
@@ -481,10 +483,28 @@ void DeduperMainWindow::setup_menu()
     QObject::connect(view_marked, &QAction::triggered, this, &DeduperMainWindow::show_marked);
     register_action("view_marked", view_marked);
 
-    help->addAction("Help");
+    QAction *hlp = help->addAction("Help");
+    QObject::connect(hlp, &QAction::triggered, [this] {QMessageBox::information(this, "Help", QString(R"(
+Built-in help is not yet implemented. Please visit the project homepage and check the doc folder in the source code repository.
+)")
+    .trimmed());
+    });
     help->addSeparator();
     QAction *about = help->addAction("About");
-    QObject::connect(about, &QAction::triggered, [this]{QMessageBox::about(this, "About Deduper", "Deduper\nFind similar images on your local filesystem.\n\n0.0.0\nChris Xiong 2022\nMPL-2.0");});
+    QObject::connect(about, &QAction::triggered, [this] {QMessageBox::about(this, "About Deduper", QString(R"(
+Deduper
+Find similar images on your local filesystem.
+
+%1
+
+Chris Xiong 2022
+Based on work of H. Chi Wong, M. Bern and D. Goldberg, "An image signature for any kind of image"
+doi: 10.1109/ICIP.2002.1038047
+Special thanks to: Gary Wang
+
+License: MPL-2.0
+)")
+    .arg(QDEDUPER_VERSION).trimmed());});
     QAction *aboutqt = help->addAction("About Qt");
     QObject::connect(aboutqt, &QAction::triggered, [this]{QMessageBox::aboutQt(this);});
 
