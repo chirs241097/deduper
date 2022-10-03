@@ -33,7 +33,7 @@ target_link_libraries(qdeduper
     xsig
 )
 
-if (QDEDUPER_USE_QT6)
+if(QDEDUPER_USE_QT6)
     target_link_libraries(qdeduper Qt6::Widgets Qt6::Concurrent)
     if(Qt6DBus_FOUND)
         target_link_libraries(qdeduper Qt6::DBus)
@@ -43,4 +43,8 @@ else()
     if(Qt5DBus_FOUND)
         target_link_libraries(qdeduper Qt5::DBus)
     endif()
+endif()
+
+if(WIN32)
+    set_property(TARGET qdeduper PROPERTY WIN32_EXECUTABLE True)
 endif()
