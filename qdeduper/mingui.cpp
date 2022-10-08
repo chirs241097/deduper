@@ -653,36 +653,39 @@ void DeduperMainWindow::update_viewstatus(std::size_t cur, std::size_t size)
 void DeduperMainWindow::save_list()
 {
     QString fn = QFileDialog::getSaveFileName(this, "Save list", QString(), "File List (*.txt)");
+    QFile file(fn);
+    if (!file.open(QIODevice::WriteOnly)) return;
+    QTextStream fst(&file);
+    for (const fs::path &x : this->marked)
+    {
 #if PATH_VALSIZE == 2
-    std::wfstream fst(utilities::qstring_to_path(fn), std::ios_base::out);
+        fst << QString::fromStdWString(x.native()) << Qt::endl;
 #else
-    std::fstream fst(utilities::qstring_to_path(fn), std::ios_base::out);
+        fst << QString::fromStdString(x.native()) << Qt::endl;
 #endif
-    if (fst.fail()) return;
-    for (auto &x : this->marked)
-        fst << x.native() << std::endl;
-    fst.close();
+    }
+
     this->markschanged = false;
 }
 
 void DeduperMainWindow::load_list()
 {
     QString fn = QFileDialog::getOpenFileName(this, "Load list", QString(), "File List (*.txt)");
-#if PATH_VALSIZE == 2
-    std::wfstream fst(utilities::qstring_to_path(fn), std::ios_base::in);
-#else
-    std::fstream fst(utilities::qstring_to_path(fn), std::ios_base::in);
-#endif
-    if (fst.fail()) return;
+    QFile file(fn);
+    if (!file.open(QIODevice::ReadOnly)) return;
     this->marked.clear();
-    while(!fst.eof())
+    QTextStream in(&file);
+    while(!in.atEnd())
     {
-        fs::path::string_type s;
-        std::getline(fst, s);
-        if (s.back() == fst.widen('\n')) s.pop_back();
-        if (!s.empty()) this->marked.insert(s);
+        QString && s = in.readLine();
+#if PATH_VALSIZE == 2
+        fs::path p(s.toStdWString());
+#else
+        fs::path p(s.toStdString());
+#endif
+        if (!s.isEmpty()) this->marked.insert(p);
     }
-    fst.close();
+    file.close();
     for (int i = 0; i < im->rowCount(); ++i)
     {
         fs::path p = utilities::qstring_to_path(static_cast<ImageItem*>(im->item(i))->path());
