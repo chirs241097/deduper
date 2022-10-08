@@ -47,13 +47,15 @@ void FileScanner::scan()
         std::string buf(maxmnlen, '\0');
         fst.read(buf.data(), maxmnlen);
         buf.resize(fst.gcount());
+        auto path_nativesp = e.path();
+        path_nativesp.make_preferred();
         for (auto &magic : mn)
             if (!memcmp(magic.data(), buf.data(), magic.length()))
             {
-                ret.push_back(e.path());
+                ret.push_back(path_nativesp);
                 break;
             }
-        Q_EMIT file_scanned(e.path(), ++fcnt);
+        Q_EMIT file_scanned(path_nativesp, ++fcnt);
     };
     auto for_all_paths = [opt, this](std::function<void(const fs::directory_entry&)> f) {
         for (auto &pe : paths)
