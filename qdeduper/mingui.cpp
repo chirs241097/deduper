@@ -656,6 +656,9 @@ void DeduperMainWindow::save_list()
     QFile file(fn);
     if (!file.open(QIODevice::WriteOnly)) return;
     QTextStream fst(&file);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    fst.setCodec("UTF-8");
+#endif
     for (const fs::path &x : this->marked)
     {
 #if PATH_VALSIZE == 2
@@ -675,6 +678,9 @@ void DeduperMainWindow::load_list()
     if (!file.open(QIODevice::ReadOnly)) return;
     this->marked.clear();
     QTextStream in(&file);
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    in.setCodec("UTF-8");
+#endif
     while(!in.atEnd())
     {
         QString && s = in.readLine();
