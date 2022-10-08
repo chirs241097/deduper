@@ -59,9 +59,9 @@ void open_containing_folder(const fs::path &path)
     if (resp.type() != QDBusMessage::MessageType::ErrorMessage)
         return;
 #endif
-#endif
     auto par = (path / "../").lexically_normal();
     QDesktopServices::openUrl(QUrl::fromLocalFile(fspath_to_qstring(par)));
+#endif
 }
 
 };
