@@ -803,6 +803,11 @@ void DeduperMainWindow::show_group(size_t gid)
 
 void DeduperMainWindow::show_marked()
 {
+    if (marked.empty())
+    {
+        this->sb->showMessage("No marked images.", 1000);
+        return;
+    }
     this->id->set_show_hotkey(false);
     this->vm = ViewMode::view_marked;
     std::vector<size_t> g;
