@@ -108,16 +108,15 @@ DeduperMainWindow::DeduperMainWindow()
     im = new QStandardItemModel(this);
     lv->setModel(im);
     lv->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
-    lv->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOn);
+    lv->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOff);
     id = new ImageItemDelegate();
-    id->set_scrollbar_margins(lv->verticalScrollBar()->width(),
-                            lv->horizontalScrollBar()->height());
+    id->set_scrollbar_margins(lv->verticalScrollBar()->width(), 0);
     id->set_model(im);
     lv->setItemDelegate(id);
     lv->setSelectionMode(QAbstractItemView::SelectionMode::NoSelection);
     lv->setResizeMode(QListView::ResizeMode::Adjust);
     lv->setVerticalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
-    lv->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAsNeeded);
+    lv->setHorizontalScrollBarPolicy(Qt::ScrollBarPolicy::ScrollBarAlwaysOff);
     lv->setHorizontalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
     lv->setVerticalScrollMode(QAbstractItemView::ScrollMode::ScrollPerPixel);
     lv->setMinimumWidth(240);
