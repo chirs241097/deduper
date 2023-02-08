@@ -10,6 +10,9 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 #endif
+#ifdef _WIN32
+#include <QDir>
+#endif
 
 namespace utilities
 {
@@ -40,7 +43,7 @@ fs::path qstring_to_path(const QString &s)
 void open_containing_folder(const fs::path &path)
 {
 #ifdef _WIN32
-    QProcess::startDetached("explorer", QStringList() << "/select," << fspath_to_qstring(path));
+    QProcess::startDetached("explorer", QStringList() << "/select," << QDir::toNativeSeparators(fspath_to_qstring(path)));
 #else
 #ifdef HAS_QTDBUS
     auto conn = QDBusConnection::sessionBus();

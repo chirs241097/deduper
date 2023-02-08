@@ -148,7 +148,7 @@ QSize ImageItemDelegate::sizeHint(const QStyleOptionViewItem &option, const QMod
     vpsz.setWidth(vpsz.width() - vw);
     vpsz.setHeight(vpsz.height() - hh);
     QPixmap pm = index.data(Qt::ItemDataRole::DecorationRole).value<QPixmap>();
-    QSize onscsz = pm.size() / pm.devicePixelRatioF();
+    QSize onscsz = pm.isNull() ? QSize(0, 0) : pm.size() / pm.devicePixelRatioF();
     int imh = onscsz.height();
     if (onscsz.width() > vpsz.width() - 2 * MARGIN - 2 * BORDER)
         imh = (vpsz.width() - 2 * MARGIN - 2 * BORDER) / (double)onscsz.width() * onscsz.height();
